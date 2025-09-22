@@ -1,0 +1,17 @@
+# Configurações do Mercado Livre
+MELI_APP_ID=seu_app_id_aqui
+MELI_CLIENT_SECRET=seu_client_secret_aqui
+MELI_REDIRECT_URI=http://localhost:5000/callback
+URL_CODE=https://auth.mercadolibre.com.br/authorization
+URL_OAUTH_TOKEN=https://api.mercadolibre.com/oauth/token
+
+# Configurações do Banco de Dados
+DB_HOST=localhost
+DB_USER=seu_usuario
+DB_PASSWORD=sua_senha
+DB_NAME=mercadolivre_lucratividade
+
+# Arquivos de resposta (opcional)
+ARQUIVO_RESPONSE=response.json
+ARQUIVO_PRODUTOS=produtos.json
+ARQUIVO_VENDAS=vendas.json

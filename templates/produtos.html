@@ -1,0 +1,2015 @@
+{% extends "base.html" %}
+
+{% block title %}Produtos - Lucratividade Mercado Livre{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block page_actions %}
+{% endblock %}
+
+{% block content %}
+<!-- Título Principal -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1 text-primary">
+            <i class="fas fa-box me-3"></i>Produtos
+        </h1>
+        <p class="text-muted mb-0">Gerencie e analise seus produtos do Mercado Livre</p>
+    </div>
+    <div class="text-end">
+        <span class="badge bg-primary fs-6 px-3 py-2" id="resultsCounter">
+            <i class="fas fa-list me-2"></i>{{ produtos|length }} produtos
+        </span>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body p-4">
+                <div class="row align-items-center mb-3">
+                    <div class="col">
+                        <h5 class="mb-0 text-dark">
+                            <i class="fas fa-filter me-2 text-primary"></i>Filtros de Busca
+                        </h5>
+                    </div>
+                </div>
+                <form method="GET" id="filtrosForm">
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6 col-md-4">
+                            <label for="busca" class="form-label fw-semibold text-dark">
+                                <i class="fas fa-search me-1 text-primary"></i>Buscar Produto
+                            </label>
+                            <input type="text" class="form-control form-control-lg border-0 shadow-sm" 
+                                   id="busca" name="busca" 
+                                   placeholder="Digite o nome ou MLB..." 
+                                   value="{{ filtros.busca if filtros else '' }}"
+                                   onkeyup="aplicarFiltros()"
+                                   style="background: rgba(255,255,255,0.8);">
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <label for="categoria" class="form-label fw-semibold text-dark">
+                                <i class="fas fa-tags me-1 text-primary"></i>Categoria
+                            </label>
+                            <select class="form-select form-select-lg border-0 shadow-sm" 
+                                    id="categoria" name="categoria" onchange="aplicarFiltros()"
+                                    style="background: rgba(255,255,255,0.8);">
+                                <option value="">Todas as categorias</option>
+                                <!-- Categorias serão carregadas dinamicamente -->
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-3">
+                            <label for="status" class="form-label fw-semibold text-dark">
+                                <i class="fas fa-toggle-on me-1 text-primary"></i>Status
+                            </label>
+                            <select class="form-select form-select-lg border-0 shadow-sm" 
+                                    id="status" name="status" onchange="aplicarFiltros()"
+                                    style="background: rgba(255,255,255,0.8);">
+                                <option value="">Todos os status</option>
+                                <option value="active" {{ 'selected' if filtros and filtros.status == 'active' else '' }}>Ativo</option>
+                                <option value="paused" {{ 'selected' if filtros and filtros.status == 'paused' else '' }}>Pausado</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 col-md-2 d-flex align-items-end">
+                            <button type="button" class="btn btn-outline-danger btn-lg w-100 shadow-sm" 
+                                    onclick="limparFiltros()" style="border-radius: 12px;">
+                                <i class="fas fa-times me-2"></i>Limpar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+                {% if produtos %}
+                <!-- Controles de Ação em Massa -->
+                <div class="row mb-3" id="controlesMassa" style="display: none;">
+                    <div class="col-12">
+                        <div class="card border-primary">
+                            <div class="card-body">
+                                <div class="row align-items-center">
+                                    <div class="col-md-6">
+                                        <span class="text-muted">
+                                            <span id="produtosSelecionados">0</span> produto(s) selecionado(s)
+                                        </span>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="d-flex gap-2">
+                                            <select class="form-select form-select-sm" id="novoStatus">
+                                                <option value="">Selecionar Status</option>
+                                                <option value="active">Ativar</option>
+                                                <option value="paused">Pausar</option>
+                                            </select>
+                                            <button class="btn btn-primary btn-sm" onclick="alterarStatusMassa()" style="white-space: nowrap;">
+                                                <i class="fas fa-sync me-1"></i>Alterar Status
+                                            </button>
+                                            <button class="btn btn-secondary btn-sm" onclick="limparSelecao()" style="white-space: nowrap;">
+                                                <i class="fas fa-times me-1"></i>Limpar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive table-container">
+                    <table class="table table-hover" id="produtosTable">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <input type="checkbox" id="selectAll" class="form-check-input">
+                                </th>
+                                <th>Imagem</th>
+                                <th class="sortable" data-column="title" data-order="asc">
+                                    Produto <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="price" data-order="asc">
+                                    Preço <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="avaliable_quantity" data-order="asc">
+                                    Estoque <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="sold_quantity" data-order="asc">
+                                    Vendidos <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="status" data-order="asc">
+                                    Status <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="category" data-order="asc">
+                                    Categoria <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="frete" data-order="asc">
+                                    Frete <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="listing_type_id" data-order="asc">
+                                    Tipo <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th class="sortable" data-column="margem_liquida" data-order="asc">
+                                    Margem <i class="fas fa-sort ms-1"></i>
+                                </th>
+                                <th style="width: 250px; min-width: 250px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produto in produtos %}
+                            <tr class="produto-principal" data-mlb="{{ produto.mlb or '' }}" {% if produto.regular_price and produto.regular_price != produto.price %}class="table-warning"{% endif %}>
+                                <td>
+                                    <input type="checkbox" class="form-check-input produto-checkbox" value="{{ produto.mlb }}">
+                                </td>
+                                <td>
+                                    <div class="product-thumbnail">
+                                        {% if produto.thumbnail %}
+                                        <img src="{{ produto.thumbnail }}" 
+                                             alt="{{ produto.title }}" 
+                                             class="img-thumbnail" 
+                                             style="width: 60px; height: 60px; object-fit: cover;">
+                                        {% else %}
+                                        <div class="img-thumbnail d-flex align-items-center justify-content-center bg-light" 
+                                             style="width: 60px; height: 60px;">
+                                            <i class="fas fa-image text-muted"></i>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <strong title="{{ produto.title }}">{{ produto.title }}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            {% if produto.mlb %}
+                                            <a href="{{ produto.permalink or 'https://produto.mercadolivre.com.br/' + produto.mlb }}" 
+                                               target="_blank" 
+                                               class="text-decoration-none">
+                                                <code>{{ produto.mlb }}</code>
+                                            </a>
+                                            {% else %}
+                                            <code>N/A</code>
+                                            {% endif %}
+                                        </small>
+                                        {% if produto.variations %}
+                                        <br>
+                                        <small class="text-info">
+                                            <i class="fas fa-layer-group me-1"></i>
+                                            {{ produto.variations|length }} variação(ões)
+                                        </small>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if produto.regular_price and produto.regular_price != produto.price %}
+                                        <div class="d-flex flex-column">
+                                            <strong class="text-success h6 mb-0">{{ "R$ {:.2f}".format(produto.price or 0) }}</strong>
+                                            <small class="text-muted text-decoration-line-through">{{ "R$ {:.2f}".format(produto.regular_price or 0) }}</small>
+                                        </div>
+                                    {% else %}
+                                        <strong class="text-success">{{ "R$ {:.2f}".format(produto.price or 0) }}</strong>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-info">{{ produto.avaliable_quantity or 0 }}</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success">{{ produto.sold_quantity or 0 }}</span>
+                                </td>
+                                <td>
+                                    {% if produto.status == 'active' %}
+                                        <span class="badge bg-success">Ativo</span>
+                                    {% elif produto.status == 'paused' %}
+                                        <span class="badge bg-warning">Pausado</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ produto.status or 'N/A' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ produto.categoria_nome or produto.category or 'N/A' }}</small>
+                                </td>
+                                <td>
+                                    {% if produto.frete and produto.frete > 0 %}
+                                        <span class="badge bg-info">{{ "R$ {:.2f}".format(produto.frete) }}</span>
+                                    {% elif produto.frete == 0 %}
+                                        <span class="badge bg-success">Frete Grátis</span>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if produto.listing_type_id == 'gold_special' %}
+                                        <span class="badge bg-warning">Premium</span>
+                                    {% elif produto.listing_type_id == 'gold_pro' %}
+                                        <span class="badge bg-primary">Clássico</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ produto.listing_type_id or 'N/A' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="text-center">
+                                        {% if produto.margem_liquida is defined and produto.margem_liquida is not none %}
+                                            {% set margem = produto.margem_liquida %}
+                                            {% if margem >= 10 %}
+                                                <span class="badge bg-success fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                            {% elif margem >= 5 %}
+                                                <span class="badge bg-warning text-dark fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                            {% else %}
+                                                <span class="badge bg-danger fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1 justify-content-center flex-nowrap">
+                                        {% if produto.mlb %}
+                                        <a href="{{ url_for('detalhes_produto', mlb=produto.mlb) }}" 
+                                           class="btn btn-sm btn-primary rounded-pill px-2 btn-action" title="Ver Detalhes">
+                                            <i class="fas fa-eye me-1"></i>Ver
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-success rounded-pill px-2 btn-action" 
+                                                onclick="calcularLucratividade('{{ produto.mlb }}')" title="Calcular Lucratividade">
+                                            <i class="fas fa-calculator me-1"></i>Lucro
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-warning rounded-pill px-2 btn-action" 
+                                                onclick="editarProduto('{{ produto.mlb }}')" title="Editar">
+                                            <i class="fas fa-edit me-1"></i>Editar
+                                        </button>
+                                        {% else %}
+                                        <span class="text-muted">N/A</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação (será gerada dinamicamente via JavaScript) -->
+                <nav aria-label="Paginação de produtos" class="mt-4" id="paginationContainer" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted" id="paginationInfo">
+                                Carregando...
+                            </small>
+                        </div>
+                        <ul class="pagination pagination-sm mb-0" id="paginationList">
+                            <!-- Será preenchido via JavaScript -->
+                        </ul>
+                    </div>
+                </nav>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-box fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum produto encontrado</h5>
+                    <p class="text-muted">Importe seus produtos do Mercado Livre para começar a análise</p>
+                </div>
+                {% endif %}
+
+
+<!-- Modal de Lucratividade -->
+<div class="modal fade" id="lucratividadeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-calculator me-2"></i>
+                    Análise de Lucratividade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="lucratividadeContent">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição de Produto -->
+<div class="modal fade" id="editarProdutoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Editar Produto
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editarProdutoForm">
+                    <input type="hidden" id="editMlb" name="mlb">
+                    
+                    <!-- Título (não editável) -->
+                    <div class="mb-3">
+                        <label class="form-label">Título do Produto</label>
+                        <div class="form-control-plaintext bg-light p-2 rounded" id="editTitleDisplay">
+                            <!-- Será preenchido via JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editPrice" class="form-label">Preço (R$)</label>
+                                <input type="number" class="form-control" id="editPrice" name="price" step="0.01" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editQuantity" class="form-label">Quantidade Disponível</label>
+                                <input type="number" class="form-control" id="editQuantity" name="quantity" min="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status</label>
+                                <select class="form-select" id="editStatus" name="status" required>
+                                    <option value="active">Ativo</option>
+                                    <option value="paused">Pausado</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="salvarProduto()">
+                    <i class="fas fa-save me-2"></i>Salvar Alterações
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Função para inicializar controles de seleção em massa
+function inicializarControlesMassa() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const produtoCheckboxes = document.querySelectorAll('.produto-checkbox');
+    const controlesMassa = document.getElementById('controlesMassa');
+    const produtosSelecionados = document.getElementById('produtosSelecionados');
+    
+    // Remover event listeners existentes
+    if (selectAllCheckbox) {
+        selectAllCheckbox.replaceWith(selectAllCheckbox.cloneNode(true));
+    }
+    
+    // Re-adicionar event listeners
+    const newSelectAllCheckbox = document.getElementById('selectAll');
+    if (newSelectAllCheckbox) {
+        newSelectAllCheckbox.addEventListener('change', function() {
+            produtoCheckboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            atualizarControlesMassa();
+        });
+    }
+    
+    // Controle individual
+    produtoCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            atualizarControlesMassa();
+            atualizarSelectAll();
+        });
+    });
+    
+    function atualizarControlesMassa() {
+        const selecionados = document.querySelectorAll('.produto-checkbox:checked');
+        const quantidade = selecionados.length;
+        
+        if (produtosSelecionados) {
+            produtosSelecionados.textContent = quantidade;
+        }
+        
+        if (controlesMassa) {
+            if (quantidade > 0) {
+                controlesMassa.style.display = 'block';
+            } else {
+                controlesMassa.style.display = 'none';
+            }
+        }
+    }
+    
+    function atualizarSelectAll() {
+        const total = produtoCheckboxes.length;
+        const selecionados = document.querySelectorAll('.produto-checkbox:checked').length;
+        const selectAll = document.getElementById('selectAll');
+        
+        if (selectAll) {
+            if (selecionados === 0) {
+                selectAll.indeterminate = false;
+                selectAll.checked = false;
+            } else if (selecionados === total) {
+                selectAll.indeterminate = false;
+                selectAll.checked = true;
+            } else {
+                selectAll.indeterminate = true;
+            }
+        }
+    }
+}
+
+// Controle de seleção em massa
+document.addEventListener('DOMContentLoaded', function() {
+    inicializarControlesMassa();
+});
+
+// Alterar status em massa
+function alterarStatusMassa() {
+    const selecionados = document.querySelectorAll('.produto-checkbox:checked');
+    const novoStatus = document.getElementById('novoStatus').value;
+    
+    if (selecionados.length === 0) {
+        alert('Selecione pelo menos um produto');
+        return;
+    }
+    
+    if (!novoStatus) {
+        alert('Selecione um status');
+        return;
+    }
+    
+    const mlbs = Array.from(selecionados).map(checkbox => checkbox.value);
+    
+    if (confirm(`Alterar status de ${mlbs.length} produto(s) para "${novoStatus}"?`)) {
+        // Enviar requisição para alterar status
+        fetch('/alterar-status-massa', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mlbs: mlbs,
+                status: novoStatus
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Status alterado com sucesso para ${data.alterados} produto(s)`);
+                location.reload();
+            } else {
+                alert('Erro ao alterar status: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao alterar status');
+        });
+    }
+}
+
+// Limpar seleção
+function limparSelecao() {
+    document.querySelectorAll('.produto-checkbox').forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    document.getElementById('selectAll').checked = false;
+    document.getElementById('controlesMassa').style.display = 'none';
+    document.getElementById('novoStatus').value = '';
+}
+
+</script>
+<script>
+// Variáveis globais
+let debounceTimer = null;
+let carregandoProdutos = false;
+// Variável para controlar o timeout do debounce
+let filtroTimeout = null;
+
+// Filtros dinâmicos via AJAX
+function aplicarFiltros() {
+    // Evitar múltiplas requisições simultâneas
+    if (carregandoProdutos) {
+        console.log('Requisição já em andamento, ignorando...');
+        return;
+    }
+    
+    // Limpar timeout anterior
+    if (filtroTimeout) {
+        clearTimeout(filtroTimeout);
+    }
+    
+    // Aplicar filtros após 500ms de inatividade (debounce)
+    filtroTimeout = setTimeout(() => {
+        const form = document.getElementById('filtrosForm');
+        if (!form) {
+            console.error('Formulário de filtros não encontrado');
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const params = new URLSearchParams();
+        
+        // Adicionar parâmetros de filtro
+        for (const [key, value] of formData.entries()) {
+            if (value.trim()) {
+                params.append(key, value.trim());
+            }
+        }
+        
+        // Adicionar parâmetros de ordenação atuais
+        const activeHeader = document.querySelector('.sortable.active');
+        if (activeHeader) {
+            params.set('sort', activeHeader.dataset.column);
+            params.set('order', activeHeader.dataset.order);
+        }
+        
+        console.log('Aplicando filtros:', params.toString());
+        
+        // Marcar como carregando
+        carregandoProdutos = true;
+        mostrarLoading();
+        
+        // Buscar produtos via AJAX
+        fetch(`/api/produtos?${params.toString()}`, {
+            credentials: 'same-origin'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    atualizarListaProdutos(data.produtos, data.pagination);
+                } else {
+                    console.error('Erro ao buscar produtos:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erro na requisição:', error);
+            })
+            .finally(() => {
+                carregandoProdutos = false;
+                esconderLoading();
+            });
+    }, 500);
+}
+
+function limparFiltros() {
+    // Limpar campos
+    document.getElementById('busca').value = '';
+    document.getElementById('categoria').value = '';
+    document.getElementById('status').value = '';
+    
+    // Aplicar filtros (buscar todos)
+    aplicarFiltros();
+}
+
+function mostrarLoading() {
+    const tbody = document.querySelector('#produtosTable tbody');
+    if (tbody) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <div class="mt-2">Filtrando produtos...</div>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function esconderLoading() {
+    // O loading será substituído pelos produtos
+}
+
+function atualizarListaProdutos(produtos, pagination) {
+    console.log('Atualizando lista de produtos:', produtos.length, 'produtos');
+    const tbody = document.querySelector('#produtosTable tbody');
+    const resultsCounter = document.getElementById('resultsCounter');
+    
+    if (!tbody) {
+        console.error('Tbody não encontrado!');
+        return;
+    }
+    
+    // Atualizar lista de produtos
+    if (produtos.length > 0) {
+        tbody.innerHTML = produtos.map(produto => `
+            <tr ${produto.regular_price && produto.regular_price != produto.price ? 'class="table-warning"' : ''}>
+                <td>
+                    <input type="checkbox" class="form-check-input produto-checkbox" value="${produto.mlb}">
+                </td>
+                <td>
+                    <div class="product-thumbnail">
+                        ${produto.thumbnail ? 
+                            `<img src="${produto.thumbnail}" alt="${produto.title}" class="img-thumbnail" style="width: 60px; height: 60px; object-fit: cover;">` :
+                            `<div class="img-thumbnail d-flex align-items-center justify-content-center bg-light" style="width: 60px; height: 60px;">
+                                <i class="fas fa-image text-muted"></i>
+                            </div>`
+                        }
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <strong title="${produto.title}">${produto.title}</strong>
+                        <br>
+                        <small class="text-muted">
+                            <a href="${produto.permalink || 'https://produto.mercadolivre.com.br/' + produto.mlb}" 
+                               target="_blank" 
+                               class="text-decoration-none">
+                                <code>${produto.mlb}</code>
+                            </a>
+                        </small>
+                    </div>
+                </td>
+            <td>
+                ${produto.regular_price && produto.regular_price != produto.price ? 
+                    `<div class="d-flex flex-column">
+                        <strong class="text-success h6 mb-0">R$ ${parseFloat(produto.price || 0).toFixed(2)}</strong>
+                        <small class="text-muted text-decoration-line-through">R$ ${parseFloat(produto.regular_price || 0).toFixed(2)}</small>
+                    </div>` : 
+                    `<strong class="text-success">R$ ${parseFloat(produto.price || 0).toFixed(2)}</strong>`
+                }
+            </td>
+                <td>
+                    <span class="badge bg-info">${parseInt(produto.avaliable_quantity || 0)}</span>
+                </td>
+                <td>
+                    <span class="badge bg-success">${parseInt(produto.sold_quantity || 0)}</span>
+                </td>
+                <td>
+                    ${produto.status === 'active' ? 
+                        '<span class="badge bg-success">Ativo</span>' :
+                        produto.status === 'paused' ? 
+                        '<span class="badge bg-warning">Pausado</span>' :
+                        '<span class="badge bg-secondary">' + (produto.status || 'N/A') + '</span>'
+                    }
+                </td>
+                <td>
+                    <small class="text-muted">${produto.categoria_nome || produto.category || 'N/A'}</small>
+                </td>
+                <td>
+                    ${produto.frete && parseFloat(produto.frete) > 0 ? 
+                        `<span class="badge bg-info">R$ ${parseFloat(produto.frete).toFixed(2)}</span>` :
+                        produto.frete !== null && produto.frete !== undefined && parseFloat(produto.frete) === 0 ? 
+                        '<span class="badge bg-success">Frete Grátis</span>' :
+                        '<span class="text-muted">N/A</span>'
+                    }
+                </td>
+                                <td>
+                                    ${produto.listing_type_id === 'gold_special' ? 
+                                        '<span class="badge bg-warning">Premium</span>' :
+                                        produto.listing_type_id === 'gold_pro' ? 
+                                        '<span class="badge bg-primary">Clássico</span>' :
+                                        '<span class="badge bg-secondary">' + (produto.listing_type_id || 'N/A') + '</span>'
+                                    }
+                                </td>
+                                <td>
+                                    <div class="text-center">
+                                        ${produto.margem_liquida !== undefined && produto.margem_liquida !== null ? 
+                                            (produto.margem_liquida >= 10 ? 
+                                                '<span class="badge bg-success fs-6">' + produto.margem_liquida.toFixed(1) + '%</span>' :
+                                                produto.margem_liquida >= 5 ? 
+                                                '<span class="badge bg-warning text-dark fs-6">' + produto.margem_liquida.toFixed(1) + '%</span>' :
+                                                '<span class="badge bg-danger fs-6">' + produto.margem_liquida.toFixed(1) + '%</span>'
+                                            ) : 
+                                            '<span class="text-muted">-</span>'
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                    <div class="d-flex gap-1 justify-content-center flex-nowrap">
+                        <a href="/produto/${produto.mlb}" class="btn btn-sm btn-primary rounded-pill px-2 btn-action" title="Ver Detalhes">
+                            <i class="fas fa-eye me-1"></i>Ver
+                        </a>
+                        <button type="button" class="btn btn-sm btn-success rounded-pill px-2 btn-action" onclick="calcularLucratividade('${produto.mlb}')" title="Calcular Lucratividade">
+                            <i class="fas fa-calculator me-1"></i>Lucro
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning rounded-pill px-2 btn-action" onclick="editarProduto('${produto.mlb}')" title="Editar">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } else {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhum produto encontrado</h5>
+                    <p class="text-muted">Tente ajustar os filtros de busca</p>
+                </td>
+            </tr>
+        `;
+    }
+    
+    // Atualizar contador
+    if (resultsCounter) {
+        resultsCounter.textContent = `${pagination.total_produtos} produtos encontrados`;
+    }
+    
+    // Atualizar paginação
+    atualizarPaginacao(pagination);
+    
+    // Re-inicializar controles de seleção em massa
+    inicializarControlesMassa();
+}
+
+function atualizarPaginacao(pagination) {
+    const paginationContainer = document.getElementById('paginationContainer');
+    const paginationList = document.getElementById('paginationList');
+    const paginationInfo = document.getElementById('paginationInfo');
+    
+    if (!paginationContainer || !paginationList) return;
+    
+    const { page, total_pages, has_prev, has_next, prev_page, next_page, total_produtos } = pagination;
+    
+    // Mostrar container de paginação se houver mais de uma página
+    if (total_pages > 1) {
+        paginationContainer.style.display = 'block';
+    } else {
+        paginationContainer.style.display = 'none';
+        return;
+    }
+    
+    // Atualizar informações de paginação
+    if (paginationInfo) {
+        const start = ((page - 1) * 20) + 1;
+        const end = Math.min(page * 20, total_produtos);
+        paginationInfo.textContent = `Mostrando ${start} a ${end} de ${total_produtos} produtos`;
+    }
+    
+    // Atualizar botões de paginação
+    let paginationHTML = '';
+    
+    if (has_prev) {
+        paginationHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="irParaPagina(${prev_page}); return false;">
+                    <i class="fas fa-chevron-left"></i> Anterior
+                </a>
+            </li>
+        `;
+    }
+    
+    for (let page_num = 1; page_num <= total_pages; page_num++) {
+        if (page_num === page) {
+            paginationHTML += `
+                <li class="page-item active">
+                    <span class="page-link">${page_num}</span>
+                </li>
+            `;
+        } else if (page_num <= 3 || page_num > total_pages - 3 || (page_num >= page - 2 && page_num <= page + 2)) {
+            paginationHTML += `
+                <li class="page-item">
+                    <a class="page-link" href="#" onclick="irParaPagina(${page_num}); return false;">${page_num}</a>
+                </li>
+            `;
+        } else if (page_num === 4 && page > 5) {
+            paginationHTML += `
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            `;
+        } else if (page_num === total_pages - 3 && page < total_pages - 4) {
+            paginationHTML += `
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            `;
+        }
+    }
+    
+    if (has_next) {
+        paginationHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="irParaPagina(${next_page}); return false;">
+                    Próximo <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        `;
+    }
+    
+    paginationList.innerHTML = paginationHTML;
+}
+
+function irParaPagina(page) {
+    // Evitar múltiplas requisições simultâneas
+    if (carregandoProdutos) {
+        return;
+    }
+    
+    const form = document.getElementById('filtrosForm');
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    
+    // Adicionar parâmetros de filtro
+    for (const [key, value] of formData.entries()) {
+        if (value.trim()) {
+            params.append(key, value.trim());
+        }
+    }
+    
+    // Adicionar página
+    params.set('page', page);
+    
+    // Adicionar parâmetros de ordenação atuais
+    const activeHeader = document.querySelector('.sortable.active');
+    if (activeHeader) {
+        params.set('sort', activeHeader.dataset.column);
+        params.set('order', activeHeader.dataset.order);
+    }
+    
+    // Marcar como carregando
+    carregandoProdutos = true;
+    mostrarLoading();
+    
+    // Buscar produtos via AJAX
+    fetch(`/api/produtos?${params.toString()}`, {
+        credentials: 'same-origin'
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                atualizarListaProdutos(data.produtos, data.pagination);
+            } else {
+                console.error('Erro ao buscar produtos:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+        })
+        .finally(() => {
+            carregandoProdutos = false;
+            esconderLoading();
+        });
+}
+
+function updateResultsCounter(count) {
+    // Atualizar contador se existir
+    const counter = document.getElementById('resultsCounter');
+    if (counter) {
+        counter.textContent = `${count} produtos encontrados`;
+    }
+}
+
+// Carregar categorias dinamicamente
+function carregarCategorias() {
+    // Buscar categorias via API
+    fetch('/api/categorias', {
+        credentials: 'same-origin'
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('categoria');
+                const currentValue = select.value;
+                
+                // Limpar opções existentes (exceto a primeira)
+                while (select.children.length > 1) {
+                    select.removeChild(select.lastChild);
+                }
+                
+                // Adicionar categorias ordenadas
+                data.categorias.sort().forEach(categoria => {
+                    const option = document.createElement('option');
+                    option.value = categoria;
+                    option.textContent = categoria;
+                    select.appendChild(option);
+                });
+                
+                // Restaurar valor selecionado
+                select.value = currentValue;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar categorias:', error);
+            // Fallback: carregar categorias da tabela atual
+            carregarCategoriasFallback();
+        });
+}
+
+// Fallback para carregar categorias da tabela atual
+function carregarCategoriasFallback() {
+    const table = document.getElementById('produtosTable');
+    const rows = table.getElementsByTagName('tr');
+    const categorias = new Set();
+    
+    // Coletar todas as categorias únicas
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        const categoria = cells[6].textContent.trim();
+        if (categoria && categoria !== 'N/A') {
+            categorias.add(categoria);
+        }
+    }
+    
+    // Adicionar opções ao select
+    const select = document.getElementById('categoria');
+    const currentValue = select.value;
+    
+    // Limpar opções existentes (exceto a primeira)
+    while (select.children.length > 1) {
+        select.removeChild(select.lastChild);
+    }
+    
+    // Adicionar categorias ordenadas
+    Array.from(categorias).sort().forEach(categoria => {
+        const option = document.createElement('option');
+        option.value = categoria;
+        option.textContent = categoria;
+        select.appendChild(option);
+    });
+    
+    // Restaurar valor selecionado
+    select.value = currentValue;
+}
+
+// Função para editar produto
+function editarProduto(mlb) {
+    // Buscar dados do produto na tabela
+    const table = document.getElementById('produtosTable');
+    const rows = table.getElementsByTagName('tr');
+    
+    for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].getElementsByTagName('td');
+        const mlbCell = cells[1].querySelector('code');
+        
+        if (mlbCell && mlbCell.textContent === mlb) {
+            // Extrair dados da linha
+            const title = cells[1].querySelector('strong').textContent;
+            
+            // Extrair preço corretamente
+            let priceText = cells[2].textContent;
+            const priceMatch = priceText.match(/R\$\s*([\d,]+\.?\d*)/);
+            const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
+            
+            const quantity = parseInt(cells[3].textContent);
+            
+            // Extrair status corretamente (pode estar em badge)
+            const statusCell = cells[5];
+            let status = 'active'; // padrão
+            if (statusCell.querySelector('.badge')) {
+                const statusText = statusCell.querySelector('.badge').textContent.toLowerCase();
+                if (statusText.includes('ativo')) {
+                    status = 'active';
+                } else if (statusText.includes('pausado')) {
+                    status = 'paused';
+                } else {
+                    status = statusText;
+                }
+            } else {
+                status = statusCell.textContent.toLowerCase();
+            }
+            
+            // Preencher formulário
+            document.getElementById('editMlb').value = mlb;
+            document.getElementById('editTitleDisplay').textContent = title;
+            document.getElementById('editPrice').value = price;
+            document.getElementById('editQuantity').value = quantity;
+            document.getElementById('editStatus').value = status;
+            
+            // Abrir modal
+            const modal = new bootstrap.Modal(document.getElementById('editarProdutoModal'));
+            modal.show();
+            break;
+        }
+    }
+}
+
+    // Função para salvar produto editado
+    function salvarProduto() {
+        const form = document.getElementById('editarProdutoForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        // Validar dados
+        if (!data.price || !data.quantity) {
+            alert('Por favor, preencha todos os campos obrigatórios.');
+            return;
+        }
+
+        // Enviar dados para o servidor
+        fetch('/produto/editar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                alert('Produto atualizado com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro ao atualizar produto: ' + result.message);
+            }
+        })
+        .catch(error => {
+            alert('Erro na requisição: ' + error);
+        });
+    }
+
+
+// Carregar produtos iniciais
+function carregarProdutosIniciais() {
+    // Evitar múltiplas requisições simultâneas
+    if (carregandoProdutos) {
+        console.log('Requisição já em andamento, ignorando...');
+        return;
+    }
+    
+    console.log('Carregando produtos iniciais via AJAX...');
+    carregandoProdutos = true;
+    mostrarLoading();
+    
+    fetch('/api/produtos', {
+        credentials: 'same-origin'
+    })
+        .then(response => {
+            console.log('Resposta recebida:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Dados recebidos:', data);
+            if (data.success) {
+                atualizarListaProdutos(data.produtos, data.pagination);
+            } else {
+                console.error('Erro ao carregar produtos:', data.message);
+                // Mostrar mensagem de erro na tabela
+                const tbody = document.querySelector('#produtosTable tbody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                                <h5 class="text-warning">Erro ao carregar produtos</h5>
+                                <p class="text-muted">${data.message}</p>
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            // Mostrar mensagem de erro na tabela
+            const tbody = document.querySelector('#produtosTable tbody');
+            if (tbody) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-5">
+                            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                            <h5 class="text-danger">Erro de conexão</h5>
+                            <p class="text-muted">Não foi possível carregar os produtos</p>
+                        </td>
+                    </tr>
+                `;
+            }
+        })
+        .finally(() => {
+            carregandoProdutos = false;
+            esconderLoading();
+        });
+}
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    carregarCategorias();
+    carregarProdutosIniciais();
+    
+    // Configurar dropdowns de variações
+    configurarDropdownsVariacoes();
+    
+    // Configurar ordenação da tabela
+    configurarOrdenacao();
+});
+
+// Configurar dropdowns de variações para posicionamento correto
+function configurarDropdownsVariacoes() {
+    // Aguardar um pouco para garantir que os elementos estejam carregados
+    setTimeout(() => {
+        const dropdowns = document.querySelectorAll('.dropdown');
+        dropdowns.forEach(dropdown => {
+            const toggle = dropdown.querySelector('[data-bs-toggle="dropdown"]');
+            const menu = dropdown.querySelector('.dropdown-menu');
+            
+            if (toggle && menu) {
+                // Adicionar event listener para hover
+                toggle.addEventListener('mouseenter', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Fechar outros dropdowns
+                    document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                        if (openMenu !== menu) {
+                            openMenu.classList.remove('show');
+                        }
+                    });
+                    
+                    // Mostrar dropdown atual
+                    menu.classList.add('show');
+                    // Ajustar posição após mostrar
+                    setTimeout(() => {
+                        ajustarPosicaoDropdown(menu);
+                    }, 10);
+                });
+                
+                // Fechar dropdown quando sair do hover
+                dropdown.addEventListener('mouseleave', function(e) {
+                    // Verificar se o mouse saiu do dropdown e do botão
+                    if (!dropdown.contains(e.relatedTarget)) {
+                        menu.classList.remove('show');
+                    }
+                });
+                
+                // Adicionar event listener para clique também
+                toggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Fechar outros dropdowns
+                    document.querySelectorAll('.dropdown-menu.show').forEach(openMenu => {
+                        if (openMenu !== menu) {
+                            openMenu.classList.remove('show');
+                        }
+                    });
+                    
+                    // Toggle do dropdown atual
+                    if (menu.classList.contains('show')) {
+                        menu.classList.remove('show');
+                    } else {
+                        menu.classList.add('show');
+                        // Ajustar posição após mostrar
+                        setTimeout(() => {
+                            ajustarPosicaoDropdown(menu);
+                        }, 10);
+                    }
+                });
+                
+                // Fechar dropdown ao clicar fora
+                document.addEventListener('click', function(e) {
+                    if (!dropdown.contains(e.target)) {
+                        menu.classList.remove('show');
+                    }
+                });
+            }
+        });
+    }, 100);
+}
+
+// Configurar ordenação da tabela
+function configurarOrdenacao() {
+    const sortableHeaders = document.querySelectorAll('.sortable');
+    
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const column = this.dataset.column;
+            const currentOrder = this.dataset.order;
+            const newOrder = currentOrder === 'asc' ? 'desc' : 'asc';
+            
+            // Remover classe active de todos os cabeçalhos
+            sortableHeaders.forEach(h => {
+                h.classList.remove('active', 'asc', 'desc');
+                h.dataset.order = 'asc';
+            });
+            
+            // Adicionar classe active ao cabeçalho clicado
+            this.classList.add('active', newOrder);
+            this.dataset.order = newOrder;
+            
+            // Ordenar via servidor
+            ordenarTabelaServidor(column, newOrder);
+        });
+    });
+}
+
+// Função para ordenar a tabela via servidor
+function ordenarTabelaServidor(column, order) {
+    // Mostrar loading
+    const tbody = document.querySelector('#produtosTable tbody');
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Carregando...</span></div></td></tr>';
+    
+    // Obter parâmetros atuais
+    const busca = document.getElementById('busca').value;
+    const categoria = document.getElementById('categoria').value;
+    const status = document.getElementById('status').value;
+    
+    // Obter página atual
+    const currentPage = document.querySelector('.pagination .page-item.active .page-link')?.textContent || 1;
+    
+    // Fazer requisição ao servidor
+    fetch(`/api/produtos?page=${currentPage}&busca=${encodeURIComponent(busca)}&categoria=${encodeURIComponent(categoria)}&status=${encodeURIComponent(status)}&sort=${column}&order=${order}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Atualizar a tabela com os dados ordenados
+                atualizarListaProdutos(data.produtos, data.pagination);
+            } else {
+                console.error('Erro ao ordenar produtos:', data.message);
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Erro ao carregar produtos</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Erro na requisição:', error);
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Erro ao carregar produtos</td></tr>';
+        });
+}
+
+// Ajustar posição do dropdown para não ser cortado
+function ajustarPosicaoDropdown(menu) {
+    const button = menu.previousElementSibling;
+    const buttonRect = button.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Calcular posição do dropdown
+    let left = buttonRect.right - 350; // 350px é a largura do dropdown
+    let top = buttonRect.bottom + 5;
+    
+    // Ajustar se sair da tela à esquerda
+    if (left < 10) {
+        left = buttonRect.left;
+    }
+    
+    // Ajustar se sair da tela à direita
+    if (left + 350 > viewportWidth - 10) {
+        left = viewportWidth - 360;
+    }
+    
+    // Ajustar se sair da tela para baixo
+    if (top + 400 > viewportHeight - 10) {
+        top = buttonRect.top - 405; // Abrir para cima
+    }
+    
+    // Aplicar posição fixa
+    menu.style.position = 'fixed';
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    menu.style.right = 'auto';
+    menu.style.bottom = 'auto';
+    menu.style.transform = 'none';
+    menu.style.zIndex = '1050';
+    menu.style.display = 'block';
+    menu.style.visibility = 'visible';
+    menu.style.opacity = '1';
+}
+
+
+
+// Calcular lucratividade
+function calcularLucratividade(mlb) {
+    const modal = new bootstrap.Modal(document.getElementById('lucratividadeModal'));
+    modal.show();
+    
+    // Armazena o MLB para uso posterior
+    window.currentMLB = mlb;
+    
+    // Adiciona event listener para salvar custos quando o modal for fechado
+    const modalElement = document.getElementById('lucratividadeModal');
+    modalElement.addEventListener('hidden.bs.modal', function() {
+        salvarCustosLucratividade();
+    });
+    
+    fetch(`/api/lucratividade/${mlb}`, {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            document.getElementById('lucratividadeContent').innerHTML = 
+                '<div class="alert alert-danger">' + data.error + '</div>';
+        } else {
+            document.getElementById('lucratividadeContent').innerHTML = 
+                renderLucratividade(data);
+            
+            // Adiciona event listeners para cálculo dinâmico
+            adicionarEventListenersLucratividade(data);
+            
+            // Carrega sugestão de preço
+            carregarSugestaoPreco(mlb);
+        }
+    })
+    .catch(error => {
+        document.getElementById('lucratividadeContent').innerHTML = 
+            '<div class="alert alert-danger">Erro ao calcular lucratividade: ' + error + '</div>';
+    });
+}
+
+// Renderizar lucratividade
+function renderLucratividade(data) {
+    return `
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Informações do Produto</h6>
+                <p><strong>MLB:</strong> ${data.mlb}</p>
+                <p><strong>Título:</strong> ${data.title}</p>
+                <p><strong>Categoria:</strong> ${data.category}</p>
+            </div>
+            <div class="col-md-6">
+                <h6>Análise Financeira</h6>
+                <div class="mb-2">
+                    <label class="form-label"><strong>Preço de Venda:</strong></label>
+                    <div class="input-group">
+                        <span class="input-group-text">R$</span>
+                        <input type="number" class="form-control" id="precoVenda" 
+                               value="${data.preco_venda || 0}" step="0.01" min="0">
+                    </div>
+                </div>
+                <p><strong>Custo Total:</strong> <span id="custoTotalDisplay">${formatCurrency(data.custo_total)}</span></p>
+                <p><strong>Lucro Bruto:</strong> <span id="lucroBrutoDisplay">${formatCurrency(data.lucro_bruto)}</span></p>
+                <p><strong>Margem Líquida:</strong> <span id="margemLiquidaDisplay">${formatPercentage(data.margem_liquida)}</span></p>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6>Detalhamento de Custos</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>Custos Mercado Livre:</td>
+                            <td>${formatCurrency(data.comissao_ml)}</td>
+                        </tr>
+                        <tr>
+                            <td>Frete:</td>
+                            <td>${formatCurrency(data.frete)}</td>
+                        </tr>
+                        <tr>
+                            <td>Imposto:</td>
+                            <td>
+                                <div class="input-group" style="width: 150px;">
+                                    <input type="number" class="form-control form-control-sm" id="impostoPercentual" 
+                                           value="${data.imposto_percentual || 0}" step="0.01" min="0" max="100">
+                                    <span class="input-group-text">%</span>
+                                </div>
+                                <small class="text-muted" id="impostoValorDisplay">${formatCurrency(data.imposto)}</small>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Custo do Produto:</td>
+                            <td>
+                                <div class="input-group" style="width: 150px;">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control form-control-sm" id="custoProduto" 
+                                           value="${data.custo_produto || 0}" step="0.01" min="0">
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Embalagem:</td>
+                            <td>
+                                <div class="input-group" style="width: 150px;">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control form-control-sm" id="embalagem" 
+                                           value="${data.embalagem || 0}" step="0.01" min="0">
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Custos Extras:</td>
+                            <td>
+                                <div class="input-group" style="width: 150px;">
+                                    <span class="input-group-text">R$</span>
+                                    <input type="number" class="form-control form-control-sm" id="custosExtras" 
+                                           value="${data.extra || 0}" step="0.01" min="0">
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <hr>
+        <div class="row">
+            <div class="col-12">
+                <h6>Sugestão de Preço - Mercado Livre</h6>
+                <div id="sugestaoPreco" class="text-center">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2">Carregando sugestão de preço...</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Adiciona event listeners para cálculo dinâmico
+function adicionarEventListenersLucratividade(data) {
+    // Armazena os dados originais para uso nos cálculos
+    window.dadosOriginais = data;
+    
+    // Event listeners para campos editáveis
+    const precoVenda = document.getElementById('precoVenda');
+    const impostoPercentual = document.getElementById('impostoPercentual');
+    const custoProduto = document.getElementById('custoProduto');
+    const embalagem = document.getElementById('embalagem');
+    const custosExtras = document.getElementById('custosExtras');
+    
+    if (precoVenda) {
+        precoVenda.addEventListener('input', calcularLucratividadeDinamica);
+    }
+    if (impostoPercentual) {
+        impostoPercentual.addEventListener('input', calcularLucratividadeDinamica);
+    }
+    if (custoProduto) {
+        custoProduto.addEventListener('input', calcularLucratividadeDinamica);
+    }
+    if (embalagem) {
+        embalagem.addEventListener('input', calcularLucratividadeDinamica);
+    }
+    if (custosExtras) {
+        custosExtras.addEventListener('input', calcularLucratividadeDinamica);
+    }
+    
+    // Salva custos quando sair do foco (para campos que devem ser salvos)
+    const camposSalvaveis = [impostoPercentual, custoProduto, embalagem, custosExtras];
+    camposSalvaveis.forEach(campo => {
+        if (campo) {
+            campo.addEventListener('blur', salvarCustosLucratividade);
+        }
+    });
+}
+
+// Calcula lucratividade dinamicamente
+function calcularLucratividadeDinamica() {
+    const precoVenda = parseFloat(document.getElementById('precoVenda')?.value) || 0;
+    const impostoPercentual = parseFloat(document.getElementById('impostoPercentual')?.value) || 0;
+    const custoProduto = parseFloat(document.getElementById('custoProduto')?.value) || 0;
+    const embalagem = parseFloat(document.getElementById('embalagem')?.value) || 0;
+    const custosExtras = parseFloat(document.getElementById('custosExtras')?.value) || 0;
+    
+    // Valores fixos (não editáveis) - usa dados originais
+    const custosMercadoLivre = window.dadosOriginais?.comissao_ml || 0;
+    const frete = window.dadosOriginais?.frete || 0;
+    
+    // Calcula imposto baseado na porcentagem
+    const impostoValor = (impostoPercentual / 100) * precoVenda;
+    
+    // Calcula custo total
+    const custoTotal = custoProduto + embalagem + custosMercadoLivre + frete + impostoValor + custosExtras;
+    
+    // Calcula lucro e margem
+    const lucroBruto = precoVenda - custoTotal;
+    const margemLiquida = precoVenda > 0 ? (lucroBruto / precoVenda) * 100 : 0;
+    
+    // Atualiza displays
+    atualizarDisplayLucratividade({
+        custoTotal,
+        lucroBruto,
+        margemLiquida,
+        impostoValor,
+        custoProduto,
+        embalagem,
+        custosExtras
+    });
+}
+
+// Atualiza os displays de lucratividade
+function atualizarDisplayLucratividade(valores) {
+    const custoTotalDisplay = document.getElementById('custoTotalDisplay');
+    const lucroBrutoDisplay = document.getElementById('lucroBrutoDisplay');
+    const margemLiquidaDisplay = document.getElementById('margemLiquidaDisplay');
+    const impostoValorDisplay = document.getElementById('impostoValorDisplay');
+    
+    if (custoTotalDisplay) custoTotalDisplay.textContent = formatCurrency(valores.custoTotal);
+    if (lucroBrutoDisplay) lucroBrutoDisplay.textContent = formatCurrency(valores.lucroBruto);
+    if (margemLiquidaDisplay) margemLiquidaDisplay.textContent = formatPercentage(valores.margemLiquida);
+    if (impostoValorDisplay) impostoValorDisplay.textContent = formatCurrency(valores.impostoValor);
+}
+
+// Salva custos no banco de dados
+function salvarCustosLucratividade() {
+    if (!window.currentMLB) {
+        console.log('❌ MLB não encontrado para salvar custos');
+        return;
+    }
+    
+    const imposto = parseFloat(document.getElementById('impostoPercentual')?.value) || 0;
+    const custo = parseFloat(document.getElementById('custoProduto')?.value) || 0;
+    const embalagem = parseFloat(document.getElementById('embalagem')?.value) || 0;
+    const extra = parseFloat(document.getElementById('custosExtras')?.value) || 0;
+    
+    console.log('💾 Salvando custos:', {
+        mlb: window.currentMLB,
+        imposto,
+        custo,
+        embalagem,
+        extra
+    });
+    
+    const custos = {
+        imposto: imposto,
+        custo: custo,
+        embalagem: embalagem,
+        extra: extra,
+        custo_listagem: 0, // Mantém valores existentes
+        custo_venda: 0,
+        custo_total: custo + embalagem + extra
+    };
+    
+    fetch(`/api/custos-produto/${window.currentMLB}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ custos: custos })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Custos salvos com sucesso');
+            showSuccessMessage('Custos salvos com sucesso!');
+        } else {
+            console.error('❌ Erro ao salvar custos:', data.message);
+            showErrorMessage('Erro ao salvar custos: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('❌ Erro ao salvar custos:', error);
+        showErrorMessage('Erro ao salvar custos');
+    });
+}
+
+// Carrega sugestão de preço do Mercado Livre
+function carregarSugestaoPreco(mlb) {
+    fetch(`/api/sugestao-preco/${mlb}`)
+        .then(response => response.json())
+        .then(data => {
+            const sugestaoDiv = document.getElementById('sugestaoPreco');
+            if (data.success && data.sugestao) {
+                sugestaoDiv.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card border-primary">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title text-primary">Preço Atual</h6>
+                                    <p class="h5">${formatCurrency(data.preco_atual)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title text-success">Sugestão ML</h6>
+                                    <p class="h5">${formatCurrency(data.sugestao)}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-body text-center">
+                                    <h6 class="card-title text-warning">Menor Preço</h6>
+                                    <p class="h5">${formatCurrency(data.menor_preco)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <p><strong>Custo de Venda:</strong> ${formatCurrency(data.custo_venda)}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Custo de Envio:</strong> ${formatCurrency(data.custo_envio)}</p>
+                        </div>
+                    </div>
+                `;
+            } else {
+                sugestaoDiv.innerHTML = `
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Não foi possível carregar a sugestão de preço para este produto.
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar sugestão de preço:', error);
+            document.getElementById('sugestaoPreco').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle me-2"></i>
+                    Erro ao carregar sugestão de preço.
+                </div>
+            `;
+        });
+}
+</script>
+
+<style>
+/* Estilos personalizados para os botões da lista de produtos */
+.btn-action {
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: none;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+    white-space: nowrap;
+}
+
+/* Garantir que os botões de ação em massa fiquem em uma linha */
+#controlesMassa .btn {
+    white-space: nowrap !important;
+    display: inline-flex;
+    align-items: center;
+}
+
+.btn-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.btn-primary.btn-action:hover {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    border-color: #0a58ca;
+}
+
+.btn-success.btn-action:hover {
+    background: linear-gradient(135deg, #198754, #157347);
+    border-color: #146c43;
+}
+
+.btn-warning.btn-action:hover {
+    background: linear-gradient(135deg, #ffc107, #ffca2c);
+    border-color: #ffc720;
+    color: #000;
+}
+
+.btn-action:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Animação de loading para botões */
+.btn-action.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn-action.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Estilo para cabeçalhos da tabela */
+thead th {
+    white-space: nowrap;
+    height: 50px;
+    vertical-align: middle;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+/* Estilo específico para coluna de ações */
+th[style*="width: 250px"] {
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
+}
+
+td:last-child {
+    width: 250px !important;
+    min-width: 250px !important;
+    max-width: 250px !important;
+    white-space: nowrap;
+}
+
+/* Garantir que os botões fiquem em uma linha */
+.d-flex.flex-nowrap {
+    flex-wrap: nowrap !important;
+    overflow: hidden;
+}
+
+/* Estilo para ícones de ordenação */
+.sortable i {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.sortable:hover i {
+    opacity: 1;
+}
+
+.sortable.active i {
+    opacity: 1;
+    color: #0d6efd;
+}
+
+/* Responsividade para botões */
+@media (max-width: 768px) {
+    .btn-action {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .btn-action i {
+        margin-right: 0.2rem !important;
+    }
+    
+    th[style*="width: 250px"] {
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+    }
+    
+    td:last-child {
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+    }
+    
+    /* Ajustar cabeçalhos em mobile */
+    thead th {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.25rem;
+        height: 45px;
+    }
+    
+    .sortable i {
+        font-size: 0.7rem;
+    }
+}
+
+/* Efeito de hover para a linha da tabela */
+.table tbody tr:hover {
+    background-color: rgba(0,123,255,0.05);
+    transition: background-color 0.2s ease;
+}
+
+/* Melhoria visual para a coluna de ações */
+.table td:last-child {
+    background-color: rgba(248,249,250,0.5);
+    border-left: 3px solid #e9ecef;
+}
+
+/* Estilos para o título principal */
+.h2.text-primary {
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0,123,255,0.1);
+}
+
+/* Estilos para os filtros */
+.card.shadow-sm {
+    border-radius: 16px;
+    transition: all 0.3s ease;
+}
+
+.card.shadow-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+}
+
+/* Estilos para os inputs dos filtros */
+.form-control-lg, .form-select-lg {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.form-control-lg:focus, .form-select-lg:focus {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,123,255,0.15) !important;
+    border-color: #0d6efd;
+}
+
+/* Estilos para os labels dos filtros */
+.form-label.fw-semibold {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Estilos para o badge de contagem */
+.badge.bg-primary.fs-6 {
+    border-radius: 20px;
+    font-weight: 600;
+    box-shadow: 0 4px 8px rgba(13,110,253,0.2);
+}
+
+/* Estilos para o botão limpar */
+.btn-outline-danger.btn-lg {
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-outline-danger.btn-lg:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(220,53,69,0.2);
+}
+
+/* Estilos para o dropdown de variações */
+.dropdown-menu {
+    border: none;
+    border-radius: 12px;
+    padding: 0.5rem 0;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    backdrop-filter: blur(10px);
+    background: rgba(255,255,255,0.95);
+    z-index: 1050;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: auto;
+    transform: translateX(0);
+}
+
+.dropdown-item-text {
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item-text:hover {
+    background-color: rgba(13,110,253,0.05);
+}
+
+.dropdown-item-text .btn-sm {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.dropdown-item-text .btn-sm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0;
+    border-color: rgba(0,0,0,0.08);
+}
+
+/* Animação suave para o dropdown */
+.dropdown-menu.show {
+    animation: dropdownFadeIn 0.2s ease-out;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Estilo para o botão de variações */
+.btn-info.btn-action {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    border: none;
+    color: white;
+    font-weight: 500;
+}
+
+.btn-info.btn-action:hover {
+    background: linear-gradient(135deg, #138496, #117a8b);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(23,162,184,0.3);
+}
+
+.btn-info.btn-action:focus {
+    box-shadow: 0 0 0 0.2rem rgba(23,162,184,0.25);
+}
+
+
+/* Garantir que a tabela permita overflow para expansões */
+.table-responsive {
+    overflow: visible !important;
+}
+
+/* Estilos para cabeçalhos clicáveis */
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.sortable:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.sortable i {
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+}
+
+.sortable:hover i {
+    opacity: 1;
+}
+
+.sortable.active i {
+    opacity: 1;
+    color: #007bff;
+}
+
+.sortable.asc i:before {
+    content: "\f0de"; /* fa-sort-up */
+}
+
+.sortable.desc i:before {
+    content: "\f0dd"; /* fa-sort-down */
+}
+
+/* Container da tabela deve permitir overflow */
+.table-container {
+    overflow: visible !important;
+    position: relative;
+}
+
+/* Garantir que o body permita overflow */
+body {
+    overflow-x: auto !important;
+}
+
+/* Container principal deve permitir overflow */
+.container-fluid, .container {
+    overflow: visible !important;
+}
+
+
+
+/* Responsividade melhorada */
+@media (max-width: 768px) {
+    .h2 {
+        font-size: 1.5rem;
+    }
+    
+    .form-control-lg, .form-select-lg {
+        font-size: 0.9rem;
+        padding: 0.75rem 1rem;
+    }
+    
+    .badge.fs-6 {
+        font-size: 0.8rem !important;
+        padding: 0.5rem 1rem !important;
+    }
+    
+    
+}
+</style>
+{% endblock %}

@@ -1,0 +1,1634 @@
+{% extends "base.html" %}
+
+{% block page_title %}Vendas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header da Página -->
+<div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="h2 mb-1 text-primary">
+                        <i class="fas fa-shopping-cart me-3"></i>Vendas
+                    </h1>
+                    <p class="text-muted mb-0">Gerencie e analise suas vendas do Mercado Livre</p>
+                        </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" onclick="atualizarVendas()">
+                        <i class="fas fa-sync me-1"></i>Atualizar
+                    </button>
+                    <button class="btn btn-primary" onclick="importarVendas()">
+                        <i class="fas fa-download me-1"></i>Importar Vendas
+                            </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Cards de Resumo -->
+<div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                    <i class="fas fa-shopping-cart fa-2x text-primary mb-2"></i>
+                    <h3 class="fs-1 fw-bold text-primary mb-1" id="totalVendas">0</h3>
+                    <p class="fs-6 text-muted mb-0">Total de Vendas</p>
+            </div>
+        </div>
+    </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                    <i class="fas fa-dollar-sign fa-2x text-success mb-2"></i>
+                    <h3 class="fs-1 fw-bold text-success mb-1" id="valorTotal">R$ 0,00</h3>
+                    <p class="fs-6 text-muted mb-0">Valor Total</p>
+            </div>
+        </div>
+    </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                    <i class="fas fa-percentage fa-2x text-info mb-2"></i>
+                    <h3 class="fs-1 fw-bold text-info mb-1" id="taxaTotal">R$ 0,00</h3>
+                    <p class="fs-6 text-muted mb-0">Taxa ML</p>
+            </div>
+        </div>
+    </div>
+        <div class="col-md-3 mb-3">
+            <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                    <i class="fas fa-truck fa-2x text-warning mb-2"></i>
+                    <h3 class="fs-1 fw-bold text-warning mb-1" id="freteTotal">R$ 0,00</h3>
+                    <p class="fs-6 text-muted mb-0">Frete Total</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm border-0 mb-4" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-dark mb-3">
+                <i class="fas fa-filter text-primary me-2"></i>Filtros de Busca
+                </h5>
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="fw-semibold text-dark">
+                        <i class="fas fa-search text-primary me-1"></i>Buscar
+                    </label>
+                    <input type="text" class="form-control form-control-lg border-0 shadow-sm" 
+                           id="filtroBusca" placeholder="ID da venda, comprador, produto..." 
+                           style="background: rgba(255,255,255,0.8);">
+                </div>
+                <div class="col-md-2">
+                    <label class="fw-semibold text-dark">
+                        <i class="fas fa-calendar text-primary me-1"></i>Data Início
+                    </label>
+                    <input type="date" class="form-control form-control-lg border-0 shadow-sm" 
+                           id="filtroDataInicio" style="background: rgba(255,255,255,0.8);">
+                </div>
+                <div class="col-md-2">
+                    <label class="fw-semibold text-dark">
+                        <i class="fas fa-calendar text-primary me-1"></i>Data Fim
+                    </label>
+                    <input type="date" class="form-control form-control-lg border-0 shadow-sm" 
+                           id="filtroDataFim" style="background: rgba(255,255,255,0.8);">
+                </div>
+                <div class="col-md-2">
+                    <label class="fw-semibold text-dark">
+                        <i class="fas fa-credit-card text-primary me-1"></i>Status Pagamento
+                    </label>
+                    <select class="form-select form-select-lg border-0 shadow-sm" id="filtroStatusPagamento" 
+                            style="background: rgba(255,255,255,0.8);">
+                        <option value="">Todos</option>
+                        <option value="approved">Aprovado</option>
+                        <option value="pending">Pendente</option>
+                        <option value="rejected">Rejeitado</option>
+                        <option value="cancelled">Cancelado</option>
+                        <option value="refunded">Reembolsado</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="fw-semibold text-dark">
+                        <i class="fas fa-truck text-primary me-1"></i>Status Envio
+                    </label>
+                    <select class="form-select form-select-lg border-0 shadow-sm" id="filtroStatusEnvio" 
+                            style="background: rgba(255,255,255,0.8);">
+                        <option value="">Todos</option>
+                        <option value="pending">Pendente</option>
+                        <option value="confirmed">Confirmado</option>
+                        <option value="ready_to_ship">Pronto para Envio</option>
+                        <option value="shipped">Enviado</option>
+                        <option value="in_transit">Em Trânsito</option>
+                        <option value="out_for_delivery">Saiu para Entrega</option>
+                        <option value="delivered">Entregue</option>
+                        <option value="lost">Extraviado</option>
+                        <option value="returned">Devolvido</option>
+                        <option value="cancelled">Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn btn-outline-danger btn-lg w-100 shadow-sm" onclick="limparFiltros()" 
+                            style="border-radius: 12px;">
+                        <i class="fas fa-times me-1"></i>Limpar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Vendas -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <!-- Loading -->
+            <div id="loadingVendas" class="text-center py-5" style="display: none;">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <p class="mt-3 text-muted">Carregando vendas...</p>
+            </div>
+
+            <!-- Tabela -->
+            <div id="tabelaVendas" style="display: none;">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 100px;">ID da Venda</th>
+                                <th style="width: 80px;">Data</th>
+                                <th style="width: 150px;">Comprador</th>
+                                <th style="width: 250px;">Produtos</th>
+                                <th style="width: 80px;" class="text-end">Valor</th>
+                                <th style="width: 60px;" class="text-center">Taxa</th>
+                                <th style="width: 60px;" class="text-center">Frete</th>
+                                <th style="width: 80px;" class="text-center">Pagamento</th>
+                                <th style="width: 80px;" class="text-center">Envio</th>
+                                <th style="width: 100px;" class="text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaVendasBody">
+                            <!-- Dados carregados via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Paginação -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <div class="text-muted">
+                        <span id="infoPaginacao">Mostrando 0 de 0 vendas</span>
+                        </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="paginacaoVendas">
+                            <!-- Paginação carregada via JavaScript -->
+                        </ul>
+                </nav>
+                </div>
+            </div>
+
+            <!-- Estado Vazio -->
+            <div id="estadoVazio" class="text-center py-5" style="display: none;">
+                    <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Nenhuma venda encontrada</h5>
+                <p class="text-muted">Importe suas vendas do Mercado Livre para começar</p>
+                <button class="btn btn-primary" onclick="importarVendas()">
+                    <i class="fas fa-download me-1"></i>Importar Vendas
+                </button>
+                </div>
+
+            <!-- Estado de Erro -->
+            <div id="estadoErro" class="text-center py-5" style="display: none;">
+                <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                <h5 class="text-danger">Erro ao carregar vendas</h5>
+                <p class="text-muted">Tente novamente em alguns instantes</p>
+                <button class="btn btn-outline-primary" onclick="carregarVendas()">
+                    <i class="fas fa-sync me-1"></i>Tentar Novamente
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes da Venda -->
+<div class="modal fade" id="modalDetalhesVenda" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-shopping-cart me-2"></i>Detalhes da Venda
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalDetalhesBody">
+                <!-- Conteúdo carregado via JavaScript -->
+                    </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+let paginaAtual = 1;
+let carregandoVendas = false;
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    carregarVendas();
+    
+    // Event listeners para filtros
+    document.getElementById('filtroBusca').addEventListener('input', debounce(aplicarFiltros, 500));
+    document.getElementById('filtroDataInicio').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtroDataFim').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtroStatusPagamento').addEventListener('change', aplicarFiltros);
+    document.getElementById('filtroStatusEnvio').addEventListener('change', aplicarFiltros);
+});
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function carregarVendas() {
+    if (carregandoVendas) return;
+    
+    carregandoVendas = true;
+    mostrarLoading();
+    
+    const busca = document.getElementById('filtroBusca').value;
+    const dataInicio = document.getElementById('filtroDataInicio').value;
+    const dataFim = document.getElementById('filtroDataFim').value;
+    const statusPagamento = document.getElementById('filtroStatusPagamento').value;
+    const statusEnvio = document.getElementById('filtroStatusEnvio').value;
+    
+    const params = new URLSearchParams({
+        page: paginaAtual,
+        per_page: 50,
+        busca: busca,
+        data_inicio: dataInicio,
+        data_fim: dataFim,
+        status_pagamento: statusPagamento,
+        status_envio: statusEnvio
+    });
+    
+    fetch(`/api/vendas?${params}`)
+        .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                mostrarVendas(data.vendas, data.pagination, data.totais);
+                } else {
+                mostrarErro(data.message);
+                }
+            })
+            .catch(error => {
+            console.error('Erro ao carregar vendas:', error);
+            mostrarErro('Erro de conexão');
+            })
+            .finally(() => {
+                carregandoVendas = false;
+            esconderLoading();
+        });
+}
+
+function mostrarLoading() {
+    document.getElementById('loadingVendas').style.display = 'block';
+    document.getElementById('tabelaVendas').style.display = 'none';
+    document.getElementById('estadoVazio').style.display = 'none';
+    document.getElementById('estadoErro').style.display = 'none';
+}
+
+function esconderLoading() {
+    document.getElementById('loadingVendas').style.display = 'none';
+}
+
+function mostrarVendas(vendas, pagination, totais) {
+    if (vendas.length === 0) {
+        mostrarEstadoVazio();
+        return;
+    }
+    
+    // Atualizar totais
+    document.getElementById('totalVendas').textContent = totais.total_vendas || 0;
+    document.getElementById('valorTotal').textContent = formatarMoeda(totais.valor_total || 0);
+    document.getElementById('taxaTotal').textContent = formatarMoeda(totais.taxa_total || 0);
+    document.getElementById('freteTotal').textContent = formatarMoeda(totais.frete_total || 0);
+    
+    // Renderizar tabela
+    const tbody = document.getElementById('tabelaVendasBody');
+    tbody.innerHTML = '';
+    
+    vendas.forEach(pack => {
+        const row = document.createElement('tr');
+        
+        // Determina se é um pack ou venda única
+        const isPack = pack.total_vendas > 1 || pack.total_mlbs > 1;
+        const packId = pack.pack_id;
+        const displayId = isPack ? packId : pack.venda_ids;
+        
+        row.innerHTML = `
+            <td>
+                <div class="d-flex align-items-center">
+                    <div class="bg-primary rounded d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                        <i class="fas ${isPack ? 'fa-boxes' : 'fa-shopping-bag'} text-white" style="font-size: 12px;"></i>
+                    </div>
+                    <div>
+                        <a href="https://www.mercadolivre.com.br/vendas/${packId}/detalhe" target="_blank" class="text-decoration-none" title="Ver venda no Mercado Livre">
+                            <strong class="text-primary" style="cursor: pointer;">${displayId}</strong>
+                        </a>
+                        ${isPack ? `<br><small class="text-muted">Pack de ${pack.total_vendas} vendas</small>` : ''}
+                    </div>
+                </div>
+                </td>
+                <td>
+                    <div>
+                    <strong class="text-dark">${formatarData(pack.data_aprovacao)}</strong>
+                    <br><small class="text-muted">${formatarHora(pack.data_aprovacao)}</small>
+                    </div>
+                </td>
+                <td>
+                <strong class="text-dark">${pack.comprador_nome || 'N/A'}</strong>
+                </td>
+            <td>
+                <div>
+                    <strong class="text-dark">${isPack ? `Pacote de ${pack.total_mlbs} produtos` : (pack.produtos || 'N/A')}</strong>
+                    <br><small class="text-muted">${pack.total_produtos || 0} itens</small>
+                    ${isPack ? `<br><small class="text-info">${pack.total_mlbs} MLBs diferentes</small>` : ''}
+                </div>
+                </td>
+            <td class="text-end">
+                <strong class="text-success h6 mb-0">${formatarMoeda(pack.valor_total || 0)}</strong>
+                </td>
+            <td class="text-center">
+                <span class="badge bg-warning">${formatarMoeda(pack.taxa_ml || 0)}</span>
+            </td>
+            <td class="text-center">
+                ${pack.frete_total > 0 ? 
+                    `<span class="badge bg-info">${formatarMoeda(pack.frete_total)}</span>` : 
+                    `<span class="badge bg-success">Grátis</span>`
+                }
+            </td>
+            <td class="text-center">
+                <span class="badge ${getStatusPagamentoBadgeClass(pack.status_pagamento)}">${pack.status_pagamento_pt || getStatusPagamentoTexto(pack.status_pagamento)}</span>
+            </td>
+            <td class="text-center">
+                <span class="badge ${getStatusEnvioBadgeClass(pack.status_envio)}">${pack.status_envio_pt || getStatusEnvioTexto(pack.status_envio)}</span>
+            </td>
+            <td class="text-center">
+                <div class="d-flex gap-2 justify-content-center">
+                    <a href="/detalhes-pack/${packId}" class="btn btn-info btn-sm shadow-sm" title="Ver Detalhes" style="border-radius: 8px; font-weight: 600;">
+                        <i class="fas fa-eye me-1"></i>Detalhes
+                    </a>
+                    <button class="btn btn-success btn-sm shadow-sm" onclick="calcularLucratividadePack('${packId}')" title="Calcular Lucratividade" style="border-radius: 8px; font-weight: 600;">
+                        <i class="fas fa-calculator me-1"></i>Lucro
+                        </button>
+                    </div>
+                </td>
+        `;
+        tbody.appendChild(row);
+    });
+        
+        // Atualizar paginação
+    atualizarPaginacao(pagination);
+    
+    // Mostrar tabela
+    document.getElementById('tabelaVendas').style.display = 'block';
+    document.getElementById('estadoVazio').style.display = 'none';
+    document.getElementById('estadoErro').style.display = 'none';
+}
+
+function mostrarEstadoVazio() {
+    document.getElementById('tabelaVendas').style.display = 'none';
+    document.getElementById('estadoVazio').style.display = 'block';
+    document.getElementById('estadoErro').style.display = 'none';
+}
+
+function mostrarErro(mensagem) {
+    document.getElementById('tabelaVendas').style.display = 'none';
+    document.getElementById('estadoVazio').style.display = 'none';
+    document.getElementById('estadoErro').style.display = 'block';
+    
+    const estadoErro = document.getElementById('estadoErro');
+    estadoErro.querySelector('p').textContent = mensagem;
+}
+
+function atualizarPaginacao(pagination) {
+    const paginacao = document.getElementById('paginacaoVendas');
+    const info = document.getElementById('infoPaginacao');
+    
+    if (!pagination) return;
+    
+    // Info da paginação
+    const inicio = (pagination.page - 1) * pagination.per_page + 1;
+    const fim = Math.min(pagination.page * pagination.per_page, pagination.total);
+    info.textContent = `Mostrando ${inicio} a ${fim} de ${pagination.total} vendas`;
+    
+    // Botões de paginação
+    let paginacaoHTML = '';
+    
+    // Botão anterior
+    if (pagination.has_prev) {
+        paginacaoHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="irParaPagina(${pagination.prev_page}); return false;">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+        `;
+    }
+    
+    // Números das páginas
+    const startPage = Math.max(1, pagination.page - 2);
+    const endPage = Math.min(pagination.total_pages, pagination.page + 2);
+    
+    if (startPage > 1) {
+        paginacaoHTML += `<li class="page-item"><a class="page-link" href="#" onclick="irParaPagina(1); return false;">1</a></li>`;
+        if (startPage > 2) {
+            paginacaoHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        const activeClass = i === pagination.page ? 'active' : '';
+        paginacaoHTML += `
+            <li class="page-item ${activeClass}">
+                <a class="page-link" href="#" onclick="irParaPagina(${i}); return false;">${i}</a>
+            </li>
+        `;
+    }
+    
+    if (endPage < pagination.total_pages) {
+        if (endPage < pagination.total_pages - 1) {
+            paginacaoHTML += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+        paginacaoHTML += `<li class="page-item"><a class="page-link" href="#" onclick="irParaPagina(${pagination.total_pages}); return false;">${pagination.total_pages}</a></li>`;
+    }
+    
+    // Botão próximo
+    if (pagination.has_next) {
+        paginacaoHTML += `
+            <li class="page-item">
+                <a class="page-link" href="#" onclick="irParaPagina(${pagination.next_page}); return false;">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+        `;
+    }
+    
+    paginacao.innerHTML = paginacaoHTML;
+}
+
+function irParaPagina(pagina) {
+    paginaAtual = pagina;
+    carregarVendas();
+}
+
+function aplicarFiltros() {
+    paginaAtual = 1;
+    carregarVendas();
+}
+
+function limparFiltros() {
+    document.getElementById('filtroBusca').value = '';
+    document.getElementById('filtroDataInicio').value = '';
+    document.getElementById('filtroDataFim').value = '';
+    document.getElementById('filtroStatusPagamento').value = '';
+    document.getElementById('filtroStatusEnvio').value = '';
+    aplicarFiltros();
+}
+
+function atualizarVendas() {
+    carregarVendas();
+}
+
+function importarVendas() {
+    if (confirm('Deseja importar vendas do Mercado Livre? Isso pode demorar alguns minutos.')) {
+        fetch('/importar/vendas', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Importação iniciada! Acompanhe o progresso na tela.');
+                carregarVendas();
+            } else {
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao iniciar importação');
+        });
+    }
+}
+
+function verDetalhesVenda(vendaId) {
+    // Mostrar loading no modal
+    const modalBody = document.getElementById('modalDetalhesBody');
+    modalBody.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-3 text-muted">Carregando detalhes da venda...</p>
+        </div>
+    `;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalhesVenda'));
+    modal.show();
+    
+    // Buscar detalhes da venda
+    fetch(`/api/vendas/detalhes/${vendaId}`)
+        .then(response => response.json())
+    .then(data => {
+            if (data.success) {
+                mostrarDetalhesVenda(data.detalhes);
+        } else {
+                mostrarErroDetalhes(data.message);
+        }
+    })
+    .catch(error => {
+            console.error('Erro ao carregar detalhes:', error);
+            mostrarErroDetalhes('Erro ao carregar detalhes da venda');
+        });
+}
+
+function verDetalhesPack(packId) {
+    // Mostrar loading no modal
+    const modalBody = document.getElementById('modalDetalhesBody');
+    modalBody.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Carregando...</span>
+            </div>
+            <p class="mt-3 text-muted">Carregando detalhes do pack...</p>
+        </div>
+    `;
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalhesVenda'));
+    modal.show();
+    
+    // Buscar detalhes do pack
+    fetch(`/api/packs/detalhes/${packId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarDetalhesPack(data.detalhes);
+    } else {
+                mostrarErroDetalhes(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar detalhes:', error);
+            mostrarErroDetalhes('Erro ao carregar detalhes do pack');
+        });
+}
+
+function mostrarDetalhesVenda(detalhes) {
+    const modalBody = document.getElementById('modalDetalhesBody');
+    const venda = detalhes.venda;
+    const itens = detalhes.itens || [];
+    const frete = detalhes.frete;
+    const pagamento = detalhes.pagamento;
+    
+    modalBody.innerHTML = `
+        <div class="row">
+            <!-- Informações da Venda -->
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-shopping-cart me-2"></i>Informações da Venda
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>ID da Venda:</strong></div>
+                            <div class="col-8">${venda.venda_id}</div>
+            </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Pack ID:</strong></div>
+                            <div class="col-8">${venda.pack_id || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Data:</strong></div>
+                            <div class="col-8">${formatarDataHora(venda.data_aprovacao)}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Status:</strong></div>
+                            <div class="col-8">
+                                <span class="badge ${getStatusBadgeClass(venda.status)}">${venda.status}</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Valor Total:</strong></div>
+                            <div class="col-8">
+                                <span class="h6 text-success">${formatarMoeda(venda.valor_total)}</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Taxa ML:</strong></div>
+                            <div class="col-8">${formatarMoeda(venda.taxa_ml)}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Frete:</strong></div>
+                            <div class="col-8">${formatarMoeda(venda.frete_total)}</div>
+                        </div>
+                    </div>
+            </div>
+        </div>
+        
+            <!-- Informações do Comprador -->
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-user me-2"></i>Comprador
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Nome:</strong></div>
+                            <div class="col-8">${venda.comprador_nome || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>ID:</strong></div>
+                            <div class="col-8">${venda.comprador_id || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Email:</strong></div>
+                            <div class="col-8">${venda.comprador_email || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Método Pagamento:</strong></div>
+                            <div class="col-8">${venda.payment_method || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Método Envio:</strong></div>
+                            <div class="col-8">${venda.shipping_method || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Itens da Venda -->
+            <div class="col-12 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-box me-2"></i>Produtos (${itens.length} itens)
+                </h6>
+        <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-dark">
+                    <tr>
+                        <th>Produto</th>
+                                <th>MLB</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-end">Preço Unit.</th>
+                                <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                            ${itens.map(item => `
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>${item.item_titulo || 'N/A'}</strong>
+                                            ${item.variacao_nome ? `<br><small class="text-muted">Variação: ${item.variacao_nome}</small>` : ''}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code>${item.item_mlb || 'N/A'}</code>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">${item.quantidade}</span>
+                                    </td>
+                                    <td class="text-end">${formatarMoeda(item.preco_unitario)}</td>
+                                    <td class="text-end">
+                                        <strong class="text-success">${formatarMoeda(item.preco_total)}</strong>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                </tbody>
+            </table>
+                </div>
+        </div>
+        
+            <!-- Informações de Frete -->
+            ${frete ? `
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-truck me-2"></i>Frete
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Valor:</strong></div>
+                            <div class="col-8">${formatarMoeda(frete.valor_frete)}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Método:</strong></div>
+                            <div class="col-8">${frete.metodo_envio || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Prazo:</strong></div>
+                            <div class="col-8">${frete.prazo_entrega || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Status:</strong></div>
+                            <div class="col-8">
+                                <span class="badge bg-info">${frete.status_envio || 'N/A'}</span>
+                            </div>
+                        </div>
+                        ${frete.rastreamento ? `
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Rastreamento:</strong></div>
+                            <div class="col-8">
+                                <code>${frete.rastreamento}</code>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+            
+            <!-- Informações de Pagamento -->
+            ${pagamento ? `
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-credit-card me-2"></i>Pagamento
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Valor Pago:</strong></div>
+                            <div class="col-8">
+                                <span class="h6 text-success">${formatarMoeda(pagamento.valor_pago)}</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Status:</strong></div>
+                            <div class="col-8">
+                                <span class="badge ${getStatusBadgeClass(pagamento.status_pagamento)}">${pagamento.status_pagamento}</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Método:</strong></div>
+                            <div class="col-8">${pagamento.metodo_pagamento || 'N/A'}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Parcelas:</strong></div>
+                            <div class="col-8">${pagamento.parcelas || 1}x</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Data Pagamento:</strong></div>
+                            <div class="col-8">${formatarDataHora(pagamento.data_pagamento)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function mostrarErroDetalhes(mensagem) {
+    const modalBody = document.getElementById('modalDetalhesBody');
+    modalBody.innerHTML = `
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5 class="text-danger">Erro ao carregar detalhes</h5>
+            <p class="text-muted">${mensagem}</p>
+            <button class="btn btn-outline-primary" onclick="verDetalhesVenda('${document.querySelector('[onclick*="verDetalhesVenda"]').onclick.toString().match(/'([^']+)'/)[1]}')">
+                <i class="fas fa-sync me-1"></i>Tentar Novamente
+            </button>
+        </div>
+    `;
+}
+
+function calcularLucratividade(vendaId) {
+    // Mostrar loading
+    const originalText = event.target.innerHTML;
+    event.target.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Calculando...';
+    event.target.disabled = true;
+    
+    // Buscar detalhes da venda para calcular lucratividade
+    fetch(`/api/vendas/detalhes/${vendaId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarModalLucratividade(data.detalhes);
+            } else {
+                alert('Erro ao carregar dados da venda: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao calcular lucratividade:', error);
+            alert('Erro ao calcular lucratividade');
+        })
+        .finally(() => {
+            // Restaurar botão
+            event.target.innerHTML = originalText;
+            event.target.disabled = false;
+        });
+}
+
+function mostrarModalLucratividade(detalhes) {
+    const venda = detalhes.venda;
+    const itens = detalhes.itens || [];
+    
+    // Criar modal dinamicamente
+    const modalHTML = `
+        <div class="modal fade" id="modalLucratividade" tabindex="-1">
+            <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                    <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">
+                            <i class="fas fa-calculator me-2"></i>Cálculo de Lucratividade
+                    </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalLucratividadeBody">
+                    <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary mb-3">
+                                    <i class="fas fa-shopping-cart me-2"></i>Venda: ${venda.venda_id}
+                                </h6>
+                                <div class="card border-0 bg-light">
+                                    <div class="card-body">
+                                        <div class="row">
+                        <div class="col-md-6">
+                                                <strong>Valor Total:</strong> ${formatarMoeda(venda.valor_total)}<br>
+                                                <strong>Taxa ML:</strong> ${formatarMoeda(venda.taxa_ml)}<br>
+                                                <strong>Frete:</strong> ${formatarMoeda(venda.frete_total)}
+                        </div>
+                        <div class="col-md-6">
+                                                <strong>Comprador:</strong> ${venda.comprador_nome}<br>
+                                                <strong>Data:</strong> ${formatarDataHora(venda.data_aprovacao)}<br>
+                                                <strong>Status:</strong> <span class="badge ${getStatusBadgeClass(venda.status)}">${venda.status}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
+                    
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary mb-3">
+                                    <i class="fas fa-box me-2"></i>Análise por Produto
+                                </h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover">
+                                        <thead class="table-dark">
+                                <tr>
+                                    <th>Produto</th>
+                                                <th class="text-center">Qtd</th>
+                                                <th class="text-end">Preço</th>
+                                                <th class="text-end">Custo Est.</th>
+                                                <th class="text-end">Lucro Est.</th>
+                                                <th class="text-center">Margem</th>
+                                </tr>
+                            </thead>
+                                        <tbody id="tabelaLucratividade">
+                                            ${itens.map(item => `
+                                                <tr>
+                                                    <td>
+                                                        <div>
+                                                            <strong>${item.item_titulo || 'N/A'}</strong>
+                                                            <br><code class="small">${item.item_mlb || 'N/A'}</code>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <span class="badge bg-primary">${item.quantidade}</span>
+                                                    </td>
+                                                    <td class="text-end">${formatarMoeda(item.preco_unitario)}</td>
+                                                    <td class="text-end">
+                                                        <input type="number" class="form-control form-control-sm text-end" 
+                                                               id="custo_${item.item_mlb}" 
+                                                               placeholder="0.00" step="0.01" 
+                                                               onchange="calcularMargemItem('${item.item_mlb}', ${item.preco_unitario})">
+                                                    </td>
+                                                    <td class="text-end" id="lucro_${item.item_mlb}">R$ 0,00</td>
+                                                    <td class="text-center" id="margem_${item.item_mlb}">
+                                                        <span class="badge bg-secondary">0%</span>
+                                                    </td>
+                                    </tr>
+                                            `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                                    </div>
+                        </div>
+                        
+                        <div class="row mt-4">
+                            <div class="col-12">
+                                <div class="card border-0 bg-success text-white">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold mb-3">
+                                            <i class="fas fa-chart-line me-2"></i>Resumo da Lucratividade
+                                        </h6>
+                                        <div class="row text-center">
+                                            <div class="col-md-3">
+                                                <div class="h4 mb-1" id="totalVenda">${formatarMoeda(venda.valor_total)}</div>
+                                                <small>Valor Total</small>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="h4 mb-1" id="totalCustos">R$ 0,00</div>
+                                                <small>Total Custos</small>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="h4 mb-1" id="totalLucro">R$ 0,00</div>
+                                                <small>Lucro Total</small>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="h4 mb-1" id="margemTotal">0%</div>
+                                                <small>Margem Média</small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                        </div>
+                        </div>
+                </div>
+                <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const modalAnterior = document.getElementById('modalLucratividade');
+    if (modalAnterior) {
+        modalAnterior.remove();
+    }
+    
+    // Adicionar novo modal
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalLucratividade'));
+    modal.show();
+}
+
+function calcularMargemItem(mlb, preco) {
+    const custoInput = document.getElementById(`custo_${mlb}`);
+    const custo = parseFloat(custoInput.value) || 0;
+    
+    // Cálculo básico de lucratividade
+    const taxaML = preco * 0.10; // 10% taxa ML
+    const frete = 0; // Assumindo frete grátis para o cliente
+    const custoTotal = custo + taxaML + frete;
+    const lucro = preco - custoTotal;
+    const margem = preco > 0 ? (lucro / preco) * 100 : 0;
+    
+    // Atualizar campos
+    document.getElementById(`lucro_${mlb}`).textContent = formatarMoeda(lucro);
+    const margemElement = document.getElementById(`margem_${mlb}`);
+    margemElement.innerHTML = `<span class="badge ${getMargemBadgeClass(margem)}">${margem.toFixed(1)}%</span>`;
+    
+    // Recalcular totais
+    calcularTotaisLucratividade();
+}
+
+function calcularTotaisLucratividade() {
+    const vendaTotal = parseFloat(document.getElementById('totalVenda').textContent.replace('R$ ', '').replace(',', '.'));
+    let totalCustos = 0;
+    let totalLucro = 0;
+    
+    document.querySelectorAll('[id^="custo_"]').forEach(input => {
+        const custo = parseFloat(input.value) || 0;
+        totalCustos += custo;
+    });
+    
+    document.querySelectorAll('[id^="lucro_"]').forEach(element => {
+        const lucro = parseFloat(element.textContent.replace('R$ ', '').replace(',', '.'));
+        totalLucro += lucro;
+    });
+    
+    const margemMedia = vendaTotal > 0 ? (totalLucro / vendaTotal) * 100 : 0;
+    
+    document.getElementById('totalCustos').textContent = formatarMoeda(totalCustos);
+    document.getElementById('totalLucro').textContent = formatarMoeda(totalLucro);
+    document.getElementById('margemTotal').textContent = `${margemMedia.toFixed(1)}%`;
+}
+
+function getMargemBadgeClass(margem) {
+    if (margem >= 20) return 'bg-success';
+    if (margem >= 10) return 'bg-warning';
+    if (margem >= 0) return 'bg-info';
+    return 'bg-danger';
+}
+
+// Funções auxiliares
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(valor);
+}
+
+function formatarData(data) {
+    if (!data) return 'N/A';
+    return new Date(data).toLocaleDateString('pt-BR');
+}
+
+function formatarHora(data) {
+    if (!data) return 'N/A';
+    return new Date(data).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function formatarDataHora(data) {
+    if (!data) return 'N/A';
+    return new Date(data).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getStatusBadgeClass(status) {
+    switch (status?.toLowerCase()) {
+        case 'paid':
+        case 'approved':
+            return 'bg-success';
+        case 'pending':
+        case 'in_process':
+            return 'bg-warning';
+        case 'cancelled':
+        case 'rejected':
+            return 'bg-danger';
+        default:
+            return 'bg-secondary';
+    }
+}
+
+function getStatusPagamentoBadgeClass(status) {
+    switch(status) {
+        case 'approved': return 'bg-success';
+        case 'pending': return 'bg-warning';
+        case 'rejected': return 'bg-danger';
+        case 'cancelled': return 'bg-secondary';
+        case 'refunded': return 'bg-info';
+        default: return 'bg-light text-dark';
+    }
+}
+
+function getStatusPagamentoTexto(status) {
+    switch(status) {
+        case 'approved': return 'Aprovado';
+        case 'pending': return 'Pendente';
+        case 'rejected': return 'Rejeitado';
+        case 'cancelled': return 'Cancelado';
+        case 'refunded': return 'Reembolsado';
+        default: return 'N/A';
+    }
+}
+
+function getStatusEnvioBadgeClass(status) {
+    switch(status) {
+        case 'delivered': return 'bg-success';
+        case 'shipped': 
+        case 'in_transit': 
+        case 'out_for_delivery': return 'bg-info';
+        case 'ready_to_ship': 
+        case 'confirmed': return 'bg-warning';
+        case 'pending': return 'bg-secondary';
+        case 'cancelled': return 'bg-danger';
+        case 'lost': 
+        case 'damaged': 
+        case 'exception': return 'bg-danger';
+        case 'returned': return 'bg-dark';
+        case 'scheduled': return 'bg-primary';
+        case 'pickup_available': 
+        case 'picked_up': return 'bg-info';
+        default: return 'bg-light text-dark';
+    }
+}
+
+function getStatusEnvioTexto(status) {
+    switch(status) {
+        case 'pending': return 'Pendente';
+        case 'confirmed': return 'Confirmado';
+        case 'ready_to_ship': return 'Pronto para Envio';
+        case 'shipped': return 'Enviado';
+        case 'in_transit': return 'Em Trânsito';
+        case 'out_for_delivery': return 'Saiu para Entrega';
+        case 'delivered': return 'Entregue';
+        case 'lost': return 'Extraviado';
+        case 'returned': return 'Devolvido';
+        case 'damaged': return 'Danificado';
+        case 'cancelled': return 'Cancelado';
+        case 'scheduled': return 'Agendado';
+        case 'pickup_available': return 'Disponível para Retirada';
+        case 'picked_up': return 'Retirado';
+        case 'exception': return 'Exceção';
+        default: return 'N/A';
+    }
+}
+
+function mostrarDetalhesPack(detalhes) {
+    const modalBody = document.getElementById('modalDetalhesBody');
+    const pack = detalhes.pack;
+    const itens = detalhes.itens || [];
+    const fretes = detalhes.fretes || [];
+    const pagamentos = detalhes.pagamentos || [];
+    
+    modalBody.innerHTML = `
+        <div class="row">
+            <!-- Informações do Pack -->
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-boxes me-2"></i>Informações do Pack
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Pack ID:</strong></div>
+                            <div class="col-8">${pack.pack_id}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Data:</strong></div>
+                            <div class="col-8">${formatarDataHora(pack.data_aprovacao)}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Status:</strong></div>
+                            <div class="col-8">
+                                <span class="badge ${getStatusBadgeClass(pack.status)}">${pack.status}</span>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Comprador:</strong></div>
+                            <div class="col-8">${pack.comprador_nome}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Total Vendas:</strong></div>
+                            <div class="col-8">${pack.total_vendas}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Valor Total:</strong></div>
+                            <div class="col-8"><strong class="text-success">${formatarMoeda(pack.valor_total)}</strong></div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Taxa ML:</strong></div>
+                            <div class="col-8">${formatarMoeda(pack.taxa_ml)}</div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col-4"><strong>Frete:</strong></div>
+                            <div class="col-8">${formatarMoeda(pack.frete_total)}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Resumo do Pack -->
+            <div class="col-md-6 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-chart-bar me-2"></i>Resumo do Pack
+                </h6>
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-primary">${pack.total_vendas}</div>
+                                <small class="text-muted">Vendas</small>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-success">${pack.total_mlbs}</div>
+                                <small class="text-muted">MLBs</small>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-info">${pack.total_produtos}</div>
+                                <small class="text-muted">Itens</small>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="h4 text-warning">${formatarMoeda(pack.valor_total)}</div>
+                                <small class="text-muted">Valor</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Produtos do Pack -->
+            <div class="col-12 mb-4">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-box me-2"></i>Produtos do Pack (${itens.length} itens)
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Venda ID</th>
+                                <th>Produto</th>
+                                <th>MLB</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-end">Preço Unit.</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itens.map(item => `
+                                <tr>
+                                    <td><code>${item.venda_id}</code></td>
+                                    <td>
+                                        <div>
+                                            <strong>${item.item_titulo || 'N/A'}</strong>
+                                            ${item.variacao_nome ? `<br><small class="text-muted">Variação: ${item.variacao_nome}</small>` : ''}
+                                        </div>
+                                    </td>
+                                    <td><code>${item.item_mlb || 'N/A'}</code></td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">${item.quantidade}</span>
+                                    </td>
+                                    <td class="text-end">${formatarMoeda(item.preco_unitario)}</td>
+                                    <td class="text-end">
+                                        <strong class="text-success">${formatarMoeda(item.preco_total)}</strong>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function calcularLucratividadePack(packId) {
+    // Criar modal dinamicamente se não existir
+    let modalElement = document.getElementById('modalLucratividade');
+    if (!modalElement) {
+        const modalHTML = `
+            <div class="modal fade" id="modalLucratividade" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header bg-success text-white">
+                            <h5 class="modal-title">
+                                <i class="fas fa-calculator me-2"></i>Lucratividade do Pack
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body" id="modalLucratividadeBody">
+                            <div class="text-center py-4">
+                                <div class="spinner-border text-success" role="status">
+                                    <span class="visually-hidden">Calculando...</span>
+                                </div>
+                                <p class="mt-3 text-muted">Calculando lucratividade do pack...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modalElement = document.getElementById('modalLucratividade');
+    }
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(modalElement);
+    modal.show();
+    
+    // Mostrar loading
+    document.getElementById('modalLucratividadeBody').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Calculando...</span>
+            </div>
+            <p class="mt-3 text-muted">Calculando lucratividade do pack...</p>
+        </div>
+    `;
+    
+    // Buscar dados de lucratividade
+    fetch(`/api/lucratividade-pack/${packId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarLucratividadePack(data.lucratividade);
+            } else {
+                mostrarErroLucratividade(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao calcular lucratividade:', error);
+            mostrarErroLucratividade('Erro ao calcular lucratividade');
+        });
+}
+
+function mostrarLucratividadePack(lucratividade) {
+    const modalBody = document.getElementById('modalLucratividadeBody');
+    
+    modalBody.innerHTML = `
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-success mb-3">
+                    <i class="fas fa-chart-line me-2"></i>Resumo da Lucratividade
+                </h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Receita Total</h6>
+                                <h4 class="text-success">R$ ${lucratividade.receita_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo Total</h6>
+                                <h4 class="text-danger">R$ ${lucratividade.custo_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Lucro Total</h6>
+                                <h4 class="${lucratividade.lucro_total >= 0 ? 'text-success' : 'text-danger'}">R$ ${lucratividade.lucro_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Margem</h6>
+                                <h4 class="${lucratividade.margem_total >= 0 ? 'text-success' : 'text-danger'}">${lucratividade.margem_total.toFixed(1)}%</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-box me-2"></i>Detalhamento por Produto
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Produto</th>
+                                <th>MLB</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-end">Receita</th>
+                                <th class="text-end">Custo Total</th>
+                                <th class="text-end">Lucro</th>
+                                <th class="text-center">Margem</th>
+                                <th class="text-center">Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${lucratividade.itens.map(item => `
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>${item.item_titulo}</strong>
+                                            <br><small class="text-muted">${item.venda_id}</small>
+                                        </div>
+                                    </td>
+                                    <td><code>${item.item_mlb}</code></td>
+                                    <td class="text-center"><span class="badge bg-primary">${item.quantidade}</span></td>
+                                    <td class="text-end"><strong class="text-success">R$ ${item.preco_total.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-end"><strong class="text-danger">R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-end"><strong class="${item.lucro_final >= 0 ? 'text-success' : 'text-danger'}">R$ ${item.lucro_final.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge ${item.margem_final >= 0 ? 'bg-success' : 'bg-danger'}">${item.margem_final.toFixed(1)}%</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-info" onclick="mostrarDetalhesCustos('${item.item_mlb}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Ver Detalhes dos Custos">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-warning mb-3">
+                    <i class="fas fa-calculator me-2"></i>Composição dos Custos Totais
+                </h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo dos Produtos</h6>
+                                <h5 class="text-primary">R$ ${lucratividade.custo_produtos.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Base + Imposto + Embalagem + Extras</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Taxa MercadoLivre</h6>
+                                <h5 class="text-warning">R$ ${lucratividade.taxa_ml.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Comissão da plataforma</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Frete Total</h6>
+                                <h5 class="text-info">R$ ${lucratividade.frete_total.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Distribuído entre produtos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo Total</h6>
+                                <h5 class="text-danger">R$ ${lucratividade.custo_total.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Soma de todos os custos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12 text-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    `;
+}
+
+function mostrarErroLucratividade(mensagem) {
+    document.getElementById('modalLucratividadeBody').innerHTML = `
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">Erro no Cálculo</h5>
+            <p class="text-muted">${mensagem}</p>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+    `;
+}
+
+function mostrarDetalhesCustos(mlb, item) {
+    // Criar modal para detalhes dos custos
+    const modalHtml = `
+        <div class="modal fade" id="modalDetalhesCustos" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-info-circle me-2"></i>Detalhes dos Custos - ${mlb}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-dark">${item.item_titulo}</h6>
+                                <p class="text-muted mb-0">Quantidade: ${item.quantidade} | Venda ID: ${item.venda_id}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-success mb-3">Receita</h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Preço Unitário:</span>
+                                            <strong class="text-success">R$ ${item.preco_unitario.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Quantidade:</span>
+                                            <strong>${item.quantidade}</strong>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between">
+                                            <span><strong>Total:</strong></span>
+                                            <strong class="text-success h5">R$ ${item.preco_total.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-danger mb-3">Custos</h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Custo Base:</span>
+                                            <strong>R$ ${item.custo_base.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Imposto:</span>
+                                            <strong>R$ ${item.imposto.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Embalagem:</span>
+                                            <strong>R$ ${item.embalagem.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Extras:</span>
+                                            <strong>R$ ${item.extra.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Frete Proporcional:</span>
+                                            <strong>R$ ${item.frete_proporcional.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between">
+                                            <span><strong>Total:</strong></span>
+                                            <strong class="text-danger h5">R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary mb-3">Resumo Financeiro</h6>
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <div class="row text-center">
+                                            <div class="col-md-4">
+                                                <h6>Receita</h6>
+                                                <h4>R$ ${item.preco_total.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6>Custo Total</h6>
+                                                <h4>R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6>Lucro</h6>
+                                                <h4 class="${item.lucro_final >= 0 ? 'text-success' : 'text-warning'}">R$ ${item.lucro_final.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                        </div>
+                                        <div class="row text-center mt-3">
+                                            <div class="col-12">
+                                                <h6>Margem de Lucro</h6>
+                                                <h3 class="${item.margem_final >= 0 ? 'text-success' : 'text-warning'}">${item.margem_final.toFixed(1)}%</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('modalDetalhesCustos');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar novo modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalhesCustos'));
+    modal.show();
+}
+</script>
+
+<style>
+/* Estilo para links de venda */
+a[href*="mercadolivre.com.br/vendas/"] strong {
+    transition: all 0.3s ease;
+}
+
+a[href*="mercadolivre.com.br/vendas/"]:hover strong {
+    color: #0d6efd !important;
+    text-decoration: underline;
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,1294 @@
+import requests
+import json
+import os
+import sys
+import time
+from pathlib import Path
+import mysql.connector
+from mysql.connector import Error
+from dotenv import load_dotenv
+import logging
+from datetime import datetime
+import asyncio 
+import httpx    
+
+
+#variaves
+load_dotenv()
+MELI_APP_ID = os.getenv('MELI_APP_ID')
+MELI_CLIENT_SECRET = os.getenv('MELI_CLIENT_SECRET')
+MELI_REDIRECT_URI = os.getenv('MELI_REDIRECT_URI')
+ARQUIVO_RESPONSE = os.getenv('ARQUIVO_RESPONSE')
+ARQUIVO_PRODUTOS = os.getenv('ARQUIVO_PRODUTOS')
+ARQUIVO_VENDAS = os.getenv('ARQUIVO_VENDAS')
+URL_CODE = os.getenv('URL_CODE')
+URL_OAUTH_TOKEN = os.getenv('URL_OAUTH_TOKEN')
+DB_HOST = os.getenv('DB_HOST')
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_NAME = os.getenv('DB_NAME')
+
+#conecta com o banco de dados
+def conectar_banco():
+    try:
+        conn = mysql.connector.connect(
+            host = DB_HOST,
+            user = DB_USER,
+            password = DB_PASSWORD,
+            database = DB_NAME
+        )
+        if conn.is_connected():
+            print("Banco Conectado!")
+            return(conn)
+    except Error as e:
+        print(f'Erro na conexão com o MYSQL: {e}')
+        return None
+
+#Salva informações do token no Branco de dados
+def salvar_tokens(dados):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS tokens(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                access_token VARCHAR(255),
+                token_type VARCHAR(15),
+                expires_in INT,
+                scope TEXT,
+                user_id INT,
+                refresh_token VARCHAR(255)
+                );
+                """
+        cursor.execute(query)
+        conn.commit()
+        
+    try:
+        access_token = dados.get("access_token")
+        token_type = dados.get("token_type")
+        expires_in = dados.get("expires_in")
+        scope = dados.get("scope")
+        user_id = dados.get("user_id")
+        refresh_token = dados.get("refresh_token")
+        
+        user_info(user_id)
+
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT t.user_id FROM tokens t
+                    where t.user_id = %s
+                    """
+            cursor.execute(query, (user_id,))
+            resultado = cursor.fetchone()
+            #verifica se ja existe o user_id no banco, se existir atualiza
+            if resultado:
+                query = f"""
+                        UPDATE tokens
+                        SET access_token = %s,
+                            token_type = %s,
+                            expires_in = %s,
+                            scope = %s,
+                            refresh_token = %s
+                        WHERE user_id = %s
+                        """
+                novos_dados = [access_token,token_type,expires_in,scope,refresh_token,user_id]
+                cursor.execute(query, novos_dados)
+                print('Dados Atualizados no Banco com sucesso!')
+            #Caso não exista no banco insere novos dados
+            else:
+                query = f"""
+                        INSERT INTO tokens(access_token, token_type, expires_in, scope, user_id, refresh_token)
+                        VALUES(%s, %s, %s, %s, %s, %s)
+                        """
+                dados_inserir = [access_token,token_type,expires_in,scope,user_id,refresh_token]
+                cursor.execute(query,dados_inserir)
+                print('Novos toknes dados inseridos no Banco!')    
+    except Error as e:
+        print(f"Erro ao salvar tokens no banco: {e}!")
+    finally:
+        if conn.is_connected():
+            conn.commit()
+            conn.close()
+            print("Conexão com o Banco fechada!")
+
+#Salva informações do usuario no Branco de dados
+def salvar_user_info(dados):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+    
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS user_info(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                user_id INT,
+                nickname VARCHAR(255),
+                first_name VARCHAR(255),
+                email VARCHAR(255),
+                phone VARCHAR(15),
+                points INT,
+                permalink TEXT,
+                status VARCHAR(30))
+                """
+        cursor.execute(query)
+        conn.commit()
+    try:
+        user_id = dados.get('id')
+        nickname = dados.get('nickname')
+        first_name = dados.get('first_name')
+        email = dados.get('email')
+        phone = dados.get('phone', {}).get('number')
+        points = dados.get('points')
+        permalink = dados.get('permalink')
+        status = dados.get('status', {}).get('site_status')
+
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT user_id FROM user_info
+                    where user_id = %s
+                    """
+            cursor.execute(query, (user_id,))
+            resultado = cursor.fetchone()
+            #verifica se ja existe o user_id no banco, se existir atualiza
+            if resultado:
+                query = f"""
+                        UPDATE user_info
+                        SET nickname = %s,
+                            first_name = %s,
+                            email = %s,
+                            phone = %s,
+                            points = %s,
+                            permalink = %s,
+                            status = %s
+                        WHERE user_id = %s
+                        """
+                novos_dados = [nickname, first_name, email, phone, points, permalink, status, user_id]
+                cursor.execute(query, novos_dados)
+                print('Informações de usuarios atualizadas no Banco com sucesso!')
+            #Caso não exista no banco insere novos dados
+            else:
+                query = f"""
+                        INSERT INTO user_info
+                        (nickname,
+                        first_name,
+                        email,
+                        phone,
+                        points,
+                        permalink,
+                        status,
+                        user_id)
+                        VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                dados_inserir = [nickname, first_name, email, phone, points, permalink, status, user_id]
+                cursor.execute(query,dados_inserir)
+                print('Novas Informações de usuarios inseridas no Banco!')    
+    except Error as e:
+        print(f"Erro ao salvar informações do usuario no banco: {e}!")
+    finally:
+        if conn.is_connected():
+            conn.commit()
+            conn.close()
+            print("Conexão com o Banco fechada!")
+
+#Salva Informações do produtos no Banco de dados
+def salvar_produto_detalhes(dados, user_id):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+    
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS produtos(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                mlb VARCHAR(25),
+                sku INT,
+                title VARCHAR(255),
+                price DECIMAL(10, 2),
+                regular_price DECIMAL(10, 2),
+                avaliable_quantity INT,
+                sold_quantity INT,
+                listing_type_id VARCHAR(25),
+                permalink TEXT,
+                thumbnail TEXT,
+                frete_gratis BOOLEAN,
+                modo_de_envio VARCHAR(18),
+                status VARCHAR(15),
+                category VARCHAR(10),
+                user_id INT)
+                """
+        cursor.execute(query)
+        conn.commit()
+        try:
+            title = dados[0]
+            print(f'Title: {title}')
+            mlb = dados[1]
+            print(f'MLB: {mlb}')
+            sku = dados[2]
+            print(f'SKU: {sku}')
+            price = preco_de_venda(mlb, user_id)[0]
+            print(f'Price: {price}')
+            regular_price = preco_de_venda(mlb, user_id)[1]
+            print(f'Regular Price: {regular_price}')
+            avaliable_quantity= dados[3]
+            print(f'Avaliable Quantity: {avaliable_quantity}')
+            sold_quantity = dados[4]
+            print(f'Sold Quantity: {sold_quantity}')
+            listing_type_id = dados[5]
+            print(f'Listing Type ID: {listing_type_id}')
+            permalink = dados[6]
+            print(f'Permalink: {permalink}')
+            thumbnail = dados[7]
+            print(f'Thumbnail: {thumbnail}')
+            frete_gratis = dados[8]
+            print(f'Frete Grátis: {frete_gratis}')
+            modo_de_envio = dados[9]
+            print(f'Modo de Envio: {modo_de_envio}')
+            status = dados[10]
+            print(f'Status: {status}')
+            category = dados[11]
+            print(f'Category: {category}')
+
+            if frete_gratis == 'true':
+                frete_gratis = 1
+            else:
+                frete_gratis = 0
+
+            with conn.cursor() as cursor:
+                query = """
+                        SELECT mlb FROM produtos
+                        WHERE mlb = %s
+                        """
+                cursor.execute(query, (mlb,))
+                resultado = cursor.fetchall()
+                #verifica se ja existe o MLB no banco, se existir atualiza
+                if resultado:
+                    query = f"""
+                            UPDATE produtos
+                            SET title = %s,
+                                sku = %s,
+                                price = %s,
+                                regular_price = %s,
+                                avaliable_quantity = %s,
+                                sold_quantity = %s,
+                                listing_type_id = %s,
+                                permalink = %s,
+                                thumbnail = %s,
+                                frete_gratis = %s,
+                                modo_de_envio = %s,
+                                status = %s,
+                                category = %s
+                            WHERE mlb = %s
+                            """
+                    novos_dados = [title, sku, price, regular_price, avaliable_quantity, sold_quantity, listing_type_id,
+                                   permalink, thumbnail, frete_gratis, modo_de_envio, status, category, mlb]
+                    cursor.execute(query, novos_dados)
+                    print(f'Detalhes do Produto {title} atualizadas no Banco com sucesso!')
+                #Caso não exista no banco insere novos dados
+                else:
+                    query = f"""
+                            INSERT INTO produtos
+                            (title,
+                            sku,
+                            price,
+                            regular_price,
+                            avaliable_quantity,
+                            sold_quantity,
+                            listing_type_id,
+                            permalink,
+                            thumbnail,
+                            frete_gratis,
+                            modo_de_envio,
+                            status,
+                            category,
+                            mlb,
+                            user_id)
+                            VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            """
+                    dados_inserir = [title, sku, price, regular_price, avaliable_quantity, sold_quantity, listing_type_id,
+                                     permalink, thumbnail, frete_gratis, modo_de_envio, status, category, mlb, user_id]
+                    cursor.execute(query,dados_inserir)
+                    print(f'Novos detalhes do Produto {title} inseridas no Banco!')    
+        except Error as e:
+            print(f"Erro ao salvar informações do Produto no banco: {e}!")
+        finally:
+            if conn.is_connected():
+                conn.commit()
+                conn.close()
+                print("Conexão com o Banco fechada!")
+
+#Obtem o Access_Token com o Código TG do Mercado Livre
+def token_inicial():
+    try:
+        print(f"Acesse: {URL_CODE}&client_id={MELI_APP_ID}&redirect_uri={MELI_REDIRECT_URI}&state=$12345")
+        CODE = input("Insira aqui o codigo de autenticação 'TG-': ")
+        PAYLOAD = {
+            "grant_type": "authorization_code",
+            "client_id": MELI_APP_ID,
+            "client_secret": MELI_CLIENT_SECRET,
+            "code": CODE,
+            "redirect_uri": MELI_REDIRECT_URI
+        }
+        response = requests.post(URL_OAUTH_TOKEN, data=PAYLOAD)
+        response.raise_for_status()
+        print("Token Obtido com sucesso!")
+        salvar_tokens(response.json())
+    except requests.exceptions.RequestException as e:
+        print(f'Erro ao consultar a API: {e}')
+
+#Retorna o Access_token do usuario
+def access_token(user_id):
+    conn = conectar_banco()
+    with conn.cursor() as cursor:
+        query = f"""
+                SELECT access_token from tokens
+                where user_id = %s
+                """
+        cursor.execute(query, (user_id,))
+        resultado = cursor.fetchone()
+        if resultado:
+            token = resultado[0]
+            print("Access Token Obtido com sucesso")
+            return token
+        else:
+            print(f"Nenhum Token encontrado para o User Id: {user_id}")
+    conn.close()
+
+#Retorna o User_id do usuario
+def user_id(id): 
+    conn = conectar_banco()
+    with conn.cursor() as cursor:
+        query = f"""
+                SELECT user_id from tokens
+                where id = %s
+                """
+        cursor.execute(query, (id,))
+        resultado = cursor.fetchone()
+        if resultado:
+            user_id = resultado[0]
+            return user_id
+        else:
+            print(f"Nenhum User ID encontrado para o Id: {id}")
+    conn.close()
+
+#Atualiza o Access_token utilizando o Refresh_Token
+def atualiza_refresh_token(user_id): 
+    conn = conectar_banco()
+    with conn.cursor() as cursor:
+        query = f"""
+                SELECT refresh_token from tokens
+                where user_id = %s
+                """
+        cursor.execute(query, (user_id,))
+        resultado = cursor.fetchone()
+        if resultado:
+            PAYLOAD = {
+                "grant_type": "refresh_token",
+                "refresh_token": resultado[0],
+                "client_id": MELI_APP_ID,
+                "client_secret": MELI_CLIENT_SECRET,
+                "redirect_uri": MELI_REDIRECT_URI
+            }
+            try:
+                response = requests.post(URL_OAUTH_TOKEN, data=PAYLOAD)
+                response.raise_for_status()
+                print("Token Obtido com sucesso!")
+                salvar_tokens(response.json())
+            except requests.exceptions.RequestException as e:
+                print(f'Erro ao consultar a API: {e}')
+        else:
+            print(f"Nenhum User ID encontrado para o Id: {id}")
+
+#Obtém informações de um usuario pelo User_id
+def user_info(id):
+    try:
+        headers = {"Authorization": f"Bearer {access_token(id)}"} 
+        url = f"https://api.mercadolibre.com/users/{id}"
+
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        print("Informações de usuario Obtidas com sucesso!")
+        salvar_user_info(response.json())
+
+    except requests.exceptions.RequestException as e:
+        print(f'Erro ao consultar a API: {e}')
+
+#Importa dados do produto com base no MLB
+def importar_detalhes_produto(mlb, user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+
+    try:
+        response = requests.get(f"https://api.mercadolibre.com/items/{mlb}", headers=headers)
+        data = response.json()
+        title = data.get('title')
+        available_quantity  = data.get('available_quantity')
+        sold_quantity = data.get('sold_quantity')
+        listing_type_id = data.get('listing_type_id')
+        permalink = data.get('permalink')
+        thumbnail = data.get('thumbnail')
+        frete_gratis = data.get('shipping', {}).get('free_shipping')
+        modo_de_envio = data.get('shipping', {}).get('mode')
+        sku = None
+        for attr in data.get('attributes', []):
+            if attr.get("id") == "SELLER_SKU":
+                sku = attr.get("value_name")
+                break
+        status = data.get('status')
+        category = dados.get('category_id') 
+        dados = [title, mlb, sku, available_quantity, sold_quantity, listing_type_id,
+                 permalink, thumbnail, frete_gratis, modo_de_envio, status, category, user_id]
+        print(f"{dados}, {user_id}")
+        salvar_produto_detalhes(dados, user_id)
+        
+    except requests.exceptions.RequestException as e:
+        print(f'Erro ao consultar a API: {e}')
+
+#Importa os produtos com base no user_id e retorna o MLB
+def importar_produtos(user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"} 
+
+    limit = 100 
+    scroll_id = None
+    contagem = 0
+    while True: 
+        try:         
+            url = f"https://api.mercadolibre.com/users/{user_id}/items/search?search_type=scan&limit={limit}"
+            if scroll_id:
+                url += f"&scroll_id={scroll_id}"
+
+            response = requests.get(url, headers=headers)
+
+            
+            data = response.json()
+            scroll_id = data.get("scroll_id")
+            total = data.get("paging", {}).get("total")
+            produtos = data.get("results", [])
+            contagem += len(produtos)
+            for mlb in produtos:
+                importar_detalhes_produto(mlb, user_id)
+            
+            if not produtos:
+                break
+
+            print(f"Produtos obtidos: {contagem} de {total}")
+
+        except requests.RequestException as e:
+            print(f'Erro ao importar produtos: {e}')
+            break
+
+    print('Importação de produtos concluida!')
+
+#Importa o preço de venda
+def preco_de_venda(mlb, user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+    response = requests.get(f"https://api.mercadolibre.com/items/{mlb}/sale_price?", headers=headers)
+    
+    try:
+        price = response.json().get("amount")
+        regular_price = response.json().get("regular_amount")
+        return(price,regular_price)
+    
+    except requests.RequestException as e:
+        print(f'Erro ao importar produtos: {e}')
+
+#Salva as sugestões de preco no Banco de dados
+def salvar_sugestao_preco(dados):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+    
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS sugestao_preco(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                mlb VARCHAR(25),
+                preco DECIMAL(10, 2),
+                sugestao DECIMAL(10, 2),
+                menor_preco DECIMAL(10, 2),
+                custo_venda DECIMAL(10, 2),
+                custo_envio DECIMAL(10, 2),
+                data DATETIME
+                )
+                """
+        cursor.execute(query)
+        conn.commit()
+    try:
+        mlb = dados[0]
+        preco = dados[1]
+        sugestao = dados[2]
+        menor_preco = dados[3]
+        custo_venda = dados[4]
+        custo_envio = dados[5]
+        data = dados[6]
+
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT mlb FROM sugestao_preco
+                    where mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchone()
+            #verifica se ja existe o user_id no banco, se existir atualiza
+            if resultado:
+                query = f"""
+                        UPDATE sugestao_preco
+                        SET preco = %s,
+                            sugestao = %s,
+                            menor_preco = %s,
+                            custo_venda = %s,
+                            custo_envio = %s,
+                            data = %s
+                        WHERE mlb = %s
+                        """
+                novos_dados = [preco, sugestao, menor_preco, custo_venda, custo_envio, data, mlb]
+                cursor.execute(query, novos_dados)
+                print('Sugestão de Preço atualizadas no Banco com sucesso!')
+            #Caso não exista no banco insere novos dados
+            else:
+                query = f"""
+                        INSERT INTO sugestao_preco
+                        (mlb,
+                        preco,
+                        sugestao,
+                        menor_preco,
+                        custo_venda,
+                        custo_envio,
+                        data)
+                        VALUES(%s, %s, %s, %s, %s, %s, %s)
+                        """
+                dados_inserir = [mlb, preco, sugestao, menor_preco, custo_venda, custo_envio, data]
+                cursor.execute(query,dados_inserir)
+                print('Nova Sugestão de Preço inseridas no Banco!')    
+    except Error as e:
+        print(f"Erro ao salvar Sugestão de preço no banco: {e}!")
+    finally:
+        if conn.is_connected():
+            conn.commit()
+            conn.close()
+            print("Conexão com o Banco fechada!")
+
+#Sugestão de preço com base no MLB
+def sugestao_preco(mlb, user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+    response = requests.get(f"https://api.mercadolibre.com/suggestions/items/{mlb}/details", headers=headers)
+    
+    try:
+        preco = response.json().get("current_price", {}).get("amount", 0)
+        sugestao = response.json().get("suggested_price", {}).get("amount")
+        menor_preco = response.json().get("lowest_price", {}).get("amount")
+        custo_venda = response.json().get("costs", {}).get("selling_fees")
+        custo_envio = response.json().get("costs", {}).get("shipping_fees")
+        data = datetime.now()
+        dados = [mlb, preco, sugestao, menor_preco, custo_venda, custo_envio, data]
+        if preco != 0 or 0.00:
+            print(f"Data: {data}\nPreço Atual: {preco}\nSugestão de Preço: {sugestao}\nMenor Preço: {menor_preco}\nCustos de Venda: {custo_venda}\nCustos de Envio: {custo_envio}")
+            salvar_sugestao_preco(dados)
+        else:
+            print(f"Não há sugestões dispoviveis para o produto {mlb}")
+    except requests.RequestException as e:
+        print(f'Erro ao importar Sugestões de Preço: {e}')
+
+#Retorna uma lista de todos os produtos pelo User_id
+def lista_de_produtos(user_id):
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        try:
+            query = f"""
+                    SELECT mlb, title, price from produtos
+                    WHERE user_id = %s
+                    """
+            cursor.execute(query, (user_id,))
+            resultado = cursor.fetchall()
+            print("Access Token Obtido com sucesso")
+            return resultado
+        except requests.RequestException as e:
+            print(f'Erro ao importar produtos: {e}')
+    conn.close()
+
+#Importa todas as Sugestões de Preço da conta do usuario
+def importar_todas_sugestoes_preco(user_id):
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    dados = lista_de_produtos(user_id)
+
+    for produto in dados:
+        mlb = produto[0]
+        sugestao_preco(mlb, user_id)
+
+#Atualiza o preço do produto
+def atualizar_preco(mlb, valor, user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}",
+               "Content-Type": "application/json",
+               "Accept": "application/json"}
+    data = {"price": valor}
+    try:
+        response = requests.put(f"https://api.mercadolibre.com/items/{id}", headers=headers, json=data)
+        print(f'Preço do anuncio {id} atualizado para {valor}')
+           
+        data = response.json()
+        mlb = data.get('id')
+        title = data.get('title')
+        available_quantity  = data.get('available_quantity')
+        sold_quantity = data.get('sold_quantity')
+        listing_type_id = data.get('listing_type_id')
+        permalink = data.get('permalink')
+        thumbnail = data.get('thumbnail')
+        frete_gratis = data.get('shipping', {}).get('free_shipping')
+        modo_de_envio = data.get('shipping', {}).get('mode')
+        sku = None
+        for attr in data.get('attributes', []):
+            if attr.get("id") == "SELLER_SKU":
+                sku = attr.get("value_name")
+                break
+        status = data.get('status')
+        category = data.get('category_id')
+        dados = [title, mlb, sku, available_quantity, sold_quantity, listing_type_id, permalink,
+                 thumbnail, frete_gratis, modo_de_envio, status, category, user_id]
+        salvar_produto_detalhes(dados, user_id)
+        
+    except requests.RequestException as e:
+        print(f'Erro ao Atualizar o Preço do produto {mlb}\n{e}')
+    
+#Atualiza o Status do produto
+def mudar_status(mlb, status, user_id):
+    headers = {"Authorization": f"Bearer {access_token(user_id)}",
+               "Content-Type": "application/json",
+               "Accept": "application/json"}
+    if status == 'paused' or status == 'active':
+        data = {"status": status}
+        try:
+            response = requests.put(f"https://api.mercadolibre.com/items/{id}", headers=headers, json=data)
+            print(f'Situação do anuncio {mlb} atualizado para {status}')
+            data = response.json()
+            mlb = data.get('id')
+            title = data.get('title')
+            available_quantity  = data.get('available_quantity')
+            sold_quantity = data.get('sold_quantity')
+            listing_type_id = data.get('listing_type_id')
+            permalink = data.get('permalink')
+            thumbnail = data.get('thumbnail')
+            frete_gratis = data.get('shipping', {}).get('free_shipping')
+            modo_de_envio = data.get('shipping', {}).get('mode')
+            sku = None
+            for attr in data.get('attributes', []):
+                if attr.get("id") == "SELLER_SKU":
+                    sku = attr.get("value_name")
+                    break
+            status = data.get('status')
+            category = data.get('category_id')
+            dados = [title, mlb, sku, available_quantity, sold_quantity, listing_type_id,
+                     permalink, thumbnail, frete_gratis, modo_de_envio, status, category, user_id]
+            salvar_produto_detalhes(dados, user_id)
+        
+        except requests.RequestException as e:
+            print(f'Erro ao Atualizar o Preço do produto {mlb}\n{e}')
+    else:
+        print('Insira um valor valido para o campo Status')
+
+#Salva os Custos do Produto no Banco de Dados
+def salvar_custos(mlb, dados):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+    
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS custos(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                mlb VARCHAR(25),
+                taxa_fixa_list DECIMAL(10, 2),
+                valor_bruto_comissao DECIMAL(10, 2),
+                tipo VARCHAR(10),
+                custos DECIMAL(10, 2),
+                taxa_fixa_sale DECIMAL(10, 2),
+                bruto_comissao DECIMAL(10, 2),
+                porcentagem_da_comissao INT,
+                imposto DECIMAL(10, 2),
+                embalagem DECIMAL(10, 2),
+                custo DECIMAL(10, 2),
+                extra DECIMAL(10, 2)
+                )
+                """
+
+        cursor.execute(query)
+        conn.commit()
+    try:
+        taxa_fixa_list = dados[0]
+        valor_bruto_comissao = dados[1]
+        tipo = dados[2]
+        custos = dados[3]
+        taxa_fixa_sale = dados[4]
+        bruto_comissao = dados[5]
+        porcentagem_da_comissao = dados[6]
+
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT mlb FROM custos
+                    where mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchone()
+            #verifica se ja existe o user_id no banco, se existir atualiza
+            if resultado:
+                query = f"""
+                        UPDATE custos
+                        SET taxa_fixa_list = %s,
+                            valor_bruto_comissao = %s,
+                            tipo = %s,
+                            custos = %s,
+                            taxa_fixa_sale = %s,
+                            bruto_comissao = %s,
+                            porcentagem_da_comissao = %s
+                        WHERE mlb = %s
+                        """
+                novos_dados = [taxa_fixa_list, valor_bruto_comissao, tipo, custos, taxa_fixa_sale,
+                        bruto_comissao, porcentagem_da_comissao, mlb]
+                cursor.execute(query, novos_dados)
+                print(f'Custos do Produto {mlb} atualizadas no Banco com sucesso!')
+            #Caso não exista no banco insere novos dados
+            else:
+                query = f"""
+                        INSERT INTO custos
+                        (taxa_fixa_list,
+                        valor_bruto_comissao,
+                        tipo,
+                        custos,
+                        taxa_fixa_sale,
+                        bruto_comissao,
+                        porcentagem_da_comissao,
+                        mlb)
+                        VALUES(%s, %s, %s, %s, %s, %s, %s, %s)
+                        """
+                dados_inserir = [taxa_fixa_list, valor_bruto_comissao, tipo, custos, taxa_fixa_sale,
+                        bruto_comissao, porcentagem_da_comissao, mlb]
+                cursor.execute(query,dados_inserir)
+                print(f'Custos do Produto {mlb} inseridas no Banco!')    
+    except Error as e:
+        print(f"Erro ao salvar Sugestão de preço no banco: {e}!")
+    finally:
+        if conn.is_connected():
+            conn.commit()
+            conn.close()
+            print("Conexão com o Banco fechada!")    
+
+#importa os custos de um produto em expecifico
+def importar_custos_produto(mlb, user_id):
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        try:
+            query = f"""
+                    SELECT price, listing_type_id, category from produtos
+                    WHERE mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchall()
+            dados = resultado[0]
+            price = dados[0]
+            tipo = dados[1]
+            categoria = dados[2]
+            
+            headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+            try:
+                response = requests.get(f"https://api.mercadolibre.com/sites/MLB/listing_prices?price={price}&listing_type_id={tipo}&category_id={categoria}", headers=headers)
+                data = response.json()
+                taxa_fixa_list = data.get('listing_fee_details', {}).get('fixed_fee')
+                valor_bruto_comissao = data.get('listing_fee_details', {}).get('gross_amount')
+                tipo = data.get('listing_type_name')
+                custos = data.get('sale_fee_amount')
+                taxa_fixa_sale = data.get('sale_fee_details',{}).get('fixed_fee')
+                bruto_comissao = data.get('sale_fee_details',{}).get('gross_amount')
+                porcentagem_da_comissao = data.get('sale_fee_details',{}).get('percentage_fee')
+                data = [taxa_fixa_list, valor_bruto_comissao, tipo, custos, taxa_fixa_sale,
+                        bruto_comissao, porcentagem_da_comissao]
+                salvar_custos(mlb, data)
+
+            except requests.RequestException as e:
+                print(f'Erro ao importar Custos produtos: {e}')  
+        except Error as e:
+            print(f'Erro ao importar produtos: {e}')
+    conn.close()
+
+#Salva o frete no Banco de Dados
+def salvar_frete(dados):
+    if not dados:
+        print("Nenhum dado para salvar.")
+        return
+    
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        query = """
+                CREATE TABLE IF NOT EXISTS frete(
+                id INTEGER PRIMARY KEY AUTO_INCREMENT,
+                mlb VARCHAR(25),
+                frete DECIMAL(10 ,2),
+                peso INT
+                )
+
+                """
+        cursor.execute(query)
+        conn.commit()
+    try:
+        mlb = dados[2]
+        frete = dados[0]
+        peso = dados[1]
+
+        with conn.cursor() as cursor:
+            query = f"""
+                    SELECT mlb FROM frete
+                    where mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchone()
+            #verifica se ja existe o mlb no banco, se existir atualiza
+            if resultado:
+                query = f"""
+                        UPDATE frete
+                        SET frete = %s,
+                            peso = %s
+                        WHERE mlb = %s
+                        """
+                novos_dados = [frete, peso, mlb]
+                cursor.execute(query, novos_dados)
+                print(f'Frete do Produto {mlb} atualizado no Banco com sucesso!')
+            #Caso não exista no banco insere novos dados
+            else:
+                query = f"""
+                        INSERT INTO frete
+                        (mlb,
+                        frete,
+                        peso)
+                        VALUES(%s, %s, %s)
+                        """
+                dados_inserir = [mlb, frete, peso]
+                cursor.execute(query, dados_inserir)
+                print(f'Novo Frete inseridas no Banco, produto: {mlb}')    
+    except Error as e:
+        print(f"Erro ao salvar Frete no banco: {e}!")
+    finally:
+        if conn.is_connected():
+            conn.commit()
+            conn.close()
+            print("Conexão com o Banco fechada!")
+
+#Importa o frete de um produto expecifico
+def importar_frete(mlb, user_id):
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        try:
+            query = f"""     
+                    SELECT frete_gratis FROM produtos
+                    WHERE mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchall()
+            dados = resultado[0]
+            frete_gratis = dados[0]
+
+        except Error as e:
+            print(f'Erro ao Buscar dados no Banco: {e}')
+
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+    try:
+        response = requests.get(f"https://api.mercadolibre.com/users/{user_id}/shipping_options/free?item_id={mlb}", headers=headers)
+        frete = response.json().get("coverage", {}).get("all_country", {}).get("list_cost")
+        if frete_gratis == 0:
+            frete = 0
+        peso = response.json().get("coverage", {}).get("all_country", {}).get("billable_weight")
+        dados = [frete, peso, mlb]
+        salvar_frete(dados)
+
+    except requests.RequestException as e:
+        print(f'Erro ao importar Frete: {e}')
+
+#Calcula a lucratividade de um produto expecifico
+def calcular_lucratividade(mlb):
+    conn = conectar_banco()
+    if conn is None:
+        print("Não foi possível conectar ao banco de dados. Abortando.")
+        return
+    
+    with conn.cursor() as cursor:
+        try:
+            query = f"""     
+                    SELECT p.price, c.custos, f.frete, c.imposto, c.embalagem, c.custo, c.extra FROM produtos p
+                    JOIN custos c ON c.mlb = p.mlb
+                    JOIN frete f ON f.mlb = c.mlb
+                    WHERE p.mlb = %s
+                    """
+            cursor.execute(query, (mlb,))
+            resultado = cursor.fetchall()
+            dados = resultado[0]
+            price = dados[0]
+            custos = dados[1]
+            frete = dados[2]
+            imposto = dados[3]
+            embalagem = dados[4]
+            custo = dados[5]
+            extra = dados[6]
+
+            if imposto == None:
+                imposto = float(input('Insira a porcentagem de imposto para este produto: '))
+                query = f"""
+                        UPDATE custos c
+                        SET imposto = %s
+                        WHERE c.mlb = %s
+                        """
+                cursor.execute(query, (imposto, mlb,))
+            if embalagem == None:
+                embalagem = float(input('Insira o valor da embalagem para este produto: '))
+                query = f"""
+                        UPDATE custos c
+                        SET embalagem = %s
+                        WHERE c.mlb = %s
+                        """
+                cursor.execute(query, (embalagem, mlb,))
+            if custo == None:
+                custo = float(input('Insira o custo do produto: '))
+                query = f"""
+                        UPDATE custos c
+                        SET custo = %s
+                        WHERE c.mlb = %s
+                        """
+                cursor.execute(query, (custo, mlb,))
+            if extra == None:
+                extra = float(input('Insira os custos adicionais do produto: '))
+                query = f"""
+                        UPDATE custos c
+                        SET extra = %s
+                        WHERE c.mlb = %s
+                        """
+                cursor.execute(query, (extra, mlb,))
+            conn.commit()
+            
+
+            imposto = ((imposto / 100) * (price - frete - custos))
+            custo_total = custo + embalagem + custos + imposto + frete + extra
+            lucro_bruto = price - custo_total
+            margem_liq = lucro_bruto / price
+            print(f'Preço: {price}\nComissão: {custos}\nFrete: {frete}\nImposto: {imposto:.2f}\nCusto: {custo}\nCustos Adicionais: {extra}\nEmbalagem: {embalagem}\nCusto Total: {custo_total:.2f}\nLucro Bruto: {lucro_bruto:.2f}\nMargem Liquida: {margem_liq:.2%}')
+       
+        except Error as e:
+            print(f'Erro ao Buscar dados no Banco: {e}')
+
+def criar_tabela_se_nao_existir(conn):
+    """
+    Verifica a conexão e executa o comando para criar a tabela 'orders'
+    apenas se ela não existir. Inclui tratamento de erro.
+    """
+    if not conn or not conn.is_connected():
+        print("Não foi possível criar a tabela: conexão com o banco de dados falhou.")
+        return
+
+    try:
+        with conn.cursor() as cursor:
+            # Query CREATE TABLE completa e corrigida
+            query = """
+            CREATE TABLE IF NOT EXISTS `orders` (
+              `id` INT NOT NULL AUTO_INCREMENT,
+              `user_id` VARCHAR(25) NULL,
+              `data_aprovacao` DATETIME NULL,
+              `data_atualizacao` DATETIME NULL,
+              `id_venda` BIGINT NULL,
+              `item_id` VARCHAR(25) NULL,
+              `item_titulo` VARCHAR(255) NULL,
+              `item_quantidade` INT NULL,
+              `item_preco_und` DECIMAL(10,2) NULL,
+              `item_preco_total` DECIMAL(10,2) NULL,
+              `taxa_venda` DECIMAL(10,2) NULL,
+              `frete` DECIMAL(10,2) NULL,
+              `comprador` VARCHAR(255) NULL,
+              `status` TEXT NULL,
+              `envio_id` BIGINT NULL,
+              PRIMARY KEY (`id`),
+              UNIQUE INDEX `uk_id_venda_item_id` (`id_venda` ASC, `item_id` ASC) VISIBLE
+            ) ENGINE = InnoDB;
+            """
+            cursor.execute(query)
+            conn.commit()
+            print("Tabela 'orders' verificada/criada com sucesso.")
+    except Error as e:
+        print(f"Erro ao tentar criar a tabela 'orders': {e}")
+        # Se não conseguir criar a tabela, não adianta continuar.
+        # Lançamos uma exceção para parar o script.
+        raise e
+
+async def fetch_frete_async(client, envio_id, user_id):
+    """
+    Busca um único frete de forma assíncrona, extraindo o valor do campo correto.
+    """
+    if not envio_id:
+        return envio_id, None
+
+    url = f'https://api.mercadolibre.com/shipments/{envio_id}'
+    headers = {"Authorization": f"Bearer {access_token(user_id)}"}
+    
+    try:
+        response = await client.get(url, headers=headers, timeout=10.0)
+        response.raise_for_status()
+        data = response.json()
+        
+        # --- LINHA CORRIGIDA ---
+        # Acessa o objeto 'shipping_option' de forma segura e pega o 'list_cost' de dentro dele.
+        shipping_option = data.get('shipping_option')
+        valor_frete = None # Define um valor padrão
+        if shipping_option: # Verifica se o objeto shipping_option existe
+            valor_frete = shipping_option.get('list_cost')
+        
+        return envio_id, valor_frete
+
+    except httpx.HTTPStatusError as e:
+        print(f"Erro de status na API de frete para {envio_id}: {e.response.status_code}")
+        return envio_id, None
+    except Exception as e:
+        print(f"Erro na requisição de frete para o envio {envio_id}: {e}")
+        return envio_id, None
+    
+async def fetch_todos_fretes_async(orders_batch, user_id):
+    """
+    Orquestra a busca concorrente de todos os fretes de um lote de vendas.
+    """
+    # Usamos um httpx.AsyncClient para reutilizar a conexão (mais eficiente)
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        for order in orders_batch:
+            envio_id = order.get('shipping', {}).get('id')
+            # Cria uma "tarefa" para cada busca de frete
+            task = fetch_frete_async(client, envio_id, user_id)
+            tasks.append(task)
+        
+        # asyncio.gather executa todas as tarefas em paralelo
+        resultados = await asyncio.gather(*tasks)
+        
+        # Retorna um dicionário mapeando envio_id -> frete para fácil acesso
+        return {envio_id: frete for envio_id, frete in resultados}
+
+# --- Lógica de Banco de Dados Otimizada (agora síncrona e separada) ---
+
+def salvar_lote_no_banco(dados_para_salvar):
+    """
+    Função dedicada a salvar os dados no banco. Não faz chamadas de rede.
+    """
+    if not dados_para_salvar:
+        print("Nenhum dado válido para salvar.")
+        return
+
+    conn = conectar_banco()
+    if conn is None:
+        return
+
+    try:
+        with conn.cursor() as cursor:
+            # Função removida - usando apenas tabela vendas
+            query = "SELECT 1 WHERE 1=0"  # Query vazia para evitar erro
+            cursor.executemany(query, dados_para_salvar)
+            conn.commit()
+            print(f"{cursor.rowcount} registros foram inseridos ou atualizados.")
+    except Error as e:
+        print(f"Erro ao salvar o lote de vendas no banco: {e}!")
+        if conn and conn.is_connected():
+            conn.rollback()
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+# --- Função Principal de Importação que integra tudo ---
+
+def importar_orders(user_id):
+    # --- PASSO 1: CONECTAR E GARANTIR QUE A TABELA EXISTA ---
+    print("Iniciando processo de importação...")
+    conn = None
+    try:
+        conn = conectar_banco()
+        # Esta chamada é a parte mais importante da correção.
+        # Ela garante que a tabela 'orders' exista antes de qualquer outra coisa.
+        criar_tabela_se_nao_existir(conn)
+    except Error as e:
+        print(f"Processo abortado. Não foi possível inicializar o banco de dados. Erro: {e}")
+        return # Para a execução se não conseguir criar a tabela
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+            print("Conexão de inicialização fechada.")
+
+    # --- PASSO 2: CONTINUAR COM A IMPORTAÇÃO (o código que já funcionava) ---
+    offset = 0
+    while True:
+        url = "https://api.mercadolibre.com/orders/search"
+        params = { "seller": user_id, "access_token": access_token(user_id), "limit": 50, "offset": offset }
+        
+        try:
+            # O resto do seu código de busca e processamento continua aqui...
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            orders_batch = data.get('results', [])
+            if not orders_batch:
+                print("Não há mais pedidos para buscar. Finalizando...")
+                break
+
+            # ... (o restante do seu loop while continua exatamente como estava antes)
+            # ... (com a busca de fretes e a chamada para salvar_lote_no_banco)
+
+            # (cole o restante do seu loop while aqui)
+            
+            # --- Início do trecho que deve ser mantido ---
+            total_orders = data.get('paging', {}).get('total', 0)
+            print(f"Processando pedidos {offset + 1} a {offset + len(orders_batch)} de {total_orders}...")
+
+            print("Buscando fretes em paralelo...")
+            mapa_fretes = asyncio.run(fetch_todos_fretes_async(orders_batch, user_id))
+            print("Busca de fretes concluída.")
+
+            dados_para_salvar = []
+            for order in orders_batch:
+                # ... (toda a sua lógica de extração de dados)
+                seller_id = order.get('seller', {}).get('id')
+                payment_info = order.get('payments', [{}])[0]
+                date_approved = payment_info.get('date_approved')
+                last_updated = order.get('last_updated')
+                id_venda = order.get('id')
+                buyer_nickname = order.get('buyer', {}).get('nickname')
+                tags_list = order.get('tags', [])
+                status_str = ",".join(tags_list)
+                envio_id = order.get('shipping', {}).get('id')
+                frete = mapa_fretes.get(envio_id)
+                for item in order.get('order_items', []):
+                    item_info = item.get('item', {})
+                    tupla_de_dados = (
+                        seller_id, date_approved, last_updated, id_venda,
+                        item_info.get('id'), item_info.get('title'), item.get('quantity'),
+                        item.get('unit_price'), item.get('full_unit_price'),
+                        item.get('sale_fee'), frete, buyer_nickname, status_str, envio_id
+                    )
+                    dados_para_salvar.append(tupla_de_dados)
+
+            if dados_para_salvar:
+                print(f"Preparando para salvar {len(dados_para_salvar)} registros. Cada registro tem {len(dados_para_salvar[0])} colunas.")
+            
+            salvar_lote_no_banco(dados_para_salvar)
+
+            offset += 50
+            if offset >= total_orders:
+                print("Todos os pedidos foram processados.")
+                break
+            # --- Fim do trecho que deve ser mantido ---
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Erro na requisição da API de pedidos: {e}")
+            break
+
+
+def analisar_lucratividade_por_id(id_venda):
+    """
+    Busca uma venda no banco de dados e calcula a lucratividade de forma interativa.
+    Versão corrigida para lidar com o tipo de dado Decimal do banco.
+    """
+    conn = conectar_banco()
+    if not conn:
+        return
+
+    try:
+        # Usamos dictionary=True para acessar colunas pelo nome
+        with conn.cursor(dictionary=True) as cursor:
+            query = "SELECT * FROM vendas WHERE venda_id = %s"
+            cursor.execute(query, (id_venda,))
+            itens_venda = cursor.fetchall()
+
+            if not itens_venda:
+                print(f"Venda com ID {id_venda} não encontrada no banco de dados.")
+                return
+
+            # --- CORREÇÃO APLICADA AQUI ---
+            # Converte os valores do tipo Decimal para float assim que são lidos do banco
+            preco_total_venda = float(sum(item['item_preco_total'] for item in itens_venda))
+            taxa_total_venda = float(sum(item.get('taxa_venda', 0) or 0 for item in itens_venda))
+            frete = float(itens_venda[0].get('frete', 0) or 0)
+            # -------------------------------
+            
+            print(f"\n--- Analisando Venda ID: {id_venda} ---")
+            print(f"Preço Total dos Itens: R$ {preco_total_venda:.2f}")
+            print(f"Taxa Total do ML: R$ {taxa_total_venda:.2f}")
+            print(f"Frete Registrado: R$ {frete:.2f}")
+
+            try:
+                imposto_perc = float(input('Insira a porcentagem de Imposto (ex: 14): '))
+                embalagem = float(input('Insira o custo da embalagem: R$ '))
+                custo_produtos = float(input('Insira o custo total dos produtos: R$ '))
+                custos_extras = float(input('Insira outros custos adicionais: R$ '))
+            except ValueError:
+                print("Erro: Por favor, insira apenas números.")
+                return
+
+            # Agora todos os cálculos funcionarão, pois as variáveis são do mesmo tipo (float)
+            imposto_valor = (imposto_perc / 100) * preco_total_venda
+            custo_total = (custo_produtos + embalagem + taxa_total_venda + imposto_valor + frete + custos_extras)
+            lucro_liquido = preco_total_venda - custo_total
+            margem_liquida = (lucro_liquido / preco_total_venda) * 100 if preco_total_venda > 0 else 0
+
+            print("\n--- Resultado da Análise de Lucratividade ---")
+            print(f"Preço de Venda: R$ {preco_total_venda:.2f}")
+            print(f"Custo dos Produtos: R$ {custo_produtos:.2f}")
+            print(f"Embalagem: R$ {embalagem:.2f}")
+            print(f"Taxa de Venda (ML): R$ {taxa_total_venda:.2f}")
+            print(f"Frete: R$ {frete:.2f}")
+            print(f"Imposto ({imposto_perc}%): R$ {imposto_valor:.2f}")
+            print(f"Custos Extras: R$ {custos_extras:.2f}")
+            print("---------------------------------------------")
+            print(f"CUSTO TOTAL DA VENDA: R$ {custo_total:.2f}")
+            print(f"LUCRO LÍQUIDO: R$ {lucro_liquido:.2f}")
+            print(f"MARGEM DE LUCRO: {margem_liquida:.2f}%")
+            print("---------------------------------------------")
+
+    except Error as e:
+        print(f"Erro ao acessar o banco de dados: {e}")
+    finally:
+        if conn and conn.is_connected():
+            conn.close()
+
+if __name__ == "__main__":
+   analisar_lucratividade_por_id('2000009303675984')

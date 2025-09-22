@@ -1,0 +1,1339 @@
+{% extends "base.html" %}
+
+{% block title %}Análise - Lucratividade Mercado Livre{% endblock %}
+{% block page_title %}{% endblock %}
+
+{% block page_actions %}
+<div class="d-flex gap-2">
+    <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="fas fa-download me-1"></i>Exportar
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" onclick="exportarRelatorio('pdf')">PDF</a></li>
+            <li><a class="dropdown-item" href="#" onclick="exportarRelatorio('excel')">Excel</a></li>
+            <li><a class="dropdown-item" href="#" onclick="exportarRelatorio('csv')">CSV</a></li>
+        </ul>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="atualizarAnalise()">
+        <i class="fas fa-sync me-1"></i>Atualizar
+    </button>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+/* Garantir que todos os cards tenham a mesma altura */
+.card.h-100 {
+    display: flex;
+    flex-direction: column;
+}
+
+.card.h-100 .card-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Ajustar altura mínima dos gráficos para uniformidade */
+.chart-container {
+    min-height: 350px;
+    position: relative;
+}
+
+/* Garantir que as seções de recomendações ocupem o espaço disponível */
+.flex-grow-1 {
+    flex: 1;
+}
+
+/* Ajustar espaçamento entre seções */
+.mb-4 {
+    margin-bottom: 1.5rem !important;
+}
+
+/* Garantir que os botões fiquem no final */
+.mt-auto {
+    margin-top: auto;
+}
+</style>
+
+<!-- Título Principal -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1 text-primary">
+            <i class="fas fa-chart-line me-3"></i>Análise Avançada
+        </h1>
+        <p class="text-muted mb-0">Análise detalhada de performance, lucratividade e insights do seu negócio</p>
+    </div>
+    <div class="text-end">
+        <span class="badge bg-success fs-6 px-3 py-2">
+            <i class="fas fa-analytics me-2"></i>Relatórios Completos
+        </span>
+    </div>
+</div>
+<!-- Cards de Resumo -->
+<div class="row mb-4">
+    <div class="col-12 col-sm-6 col-md-3 mb-3">
+        <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                <div class="stat-number fs-1 fw-bold text-primary">{{ analise.total_vendas or 0 }}</div>
+                <div class="stat-label fs-6 text-muted">
+                    <i class="fas fa-shopping-cart me-1 text-primary"></i>Vendas (30 dias)
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3 mb-3">
+        <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                <div class="stat-number fs-1 fw-bold text-success">{{ "R$ {:.2f}".format(analise.receita_total or 0) }}</div>
+                <div class="stat-label fs-6 text-muted">
+                    <i class="fas fa-dollar-sign me-1 text-success"></i>Receita Total
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3 mb-3">
+        <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                <div class="stat-number fs-1 fw-bold text-info">{{ "R$ {:.2f}".format(analise.ticket_medio or 0) }}</div>
+                <div class="stat-label fs-6 text-muted">
+                    <i class="fas fa-receipt me-1 text-info"></i>Ticket Médio
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-md-3 mb-3">
+        <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+            <div class="card-body text-center">
+                <div class="stat-number fs-1 fw-bold text-warning">{{ "R$ {:.2f}".format(analise.receita_liquida_estimada or 0) }}</div>
+                <div class="stat-label fs-6 text-muted">
+                    <i class="fas fa-chart-line me-1 text-warning"></i>Receita Líquida
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Gráfico de Vendas ao Longo do Tempo -->
+    <div class="col-12 col-lg-8 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark border-0 py-3">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-chart-line me-2 text-white"></i>
+                    Evolução das Vendas
+                </h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <small class="text-muted">Gráfico mostra a evolução das vendas nos últimos 30 dias</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary active" onclick="filtrarPeriodo('30d')">30 dias</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filtrarPeriodo('7d')">7 dias</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="filtrarPeriodo('90d')">90 dias</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex-grow-1" style="position: relative; min-height: 350px;">
+                    <canvas id="evolucaoVendasChart"></canvas>
+                </div>
+                <div class="mt-3">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h6 class="text-success mb-1">{{ analise.vendas_hoje or 0 }}</h6>
+                                <small class="text-muted">Vendas Hoje</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h6 class="text-primary mb-1">{{ analise.vendas_semana or 0 }}</h6>
+                                <small class="text-muted">Esta Semana</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <h6 class="text-info mb-1">{{ analise.vendas_mes or 0 }}</h6>
+                            <small class="text-muted">Este Mês</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Distribuição por Categoria -->
+    <div class="col-12 col-lg-4 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark border-0 py-3">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-chart-pie me-2 text-white"></i>
+                    Vendas por Categoria
+                </h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        <small class="text-muted">Distribuição percentual das vendas por categoria</small>
+                    </div>
+                </div>
+                <div class="flex-grow-1" style="position: relative; min-height: 350px;">
+                    <canvas id="categoriaChart"></canvas>
+                </div>
+                <div class="mt-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h6 class="text-primary mb-1">{{ analise.categoria_mais_vendida or 'N/A' }}</h6>
+                                <small class="text-muted">Categoria Top</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <h6 class="text-success mb-1">{{ analise.total_categorias or 0 }}</h6>
+                                <small class="text-muted">Total Categorias</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Análise de Lucratividade -->
+    <div class="col-12 col-lg-6 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark border-0 py-3">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-chart-bar me-2 text-white"></i>
+                    Análise de Lucratividade
+                </h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        <small class="text-muted">Análise detalhada de margem e rentabilidade</small>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-6">
+                        <div class="text-center p-3 border rounded">
+                            <h3 class="text-success mb-1">{{ "R$ {:.2f}".format(analise.receita_liquida_estimada or 0) }}</h3>
+                            <small class="text-muted">Lucro Líquido</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="text-center p-3 border rounded">
+                            <h3 class="text-info mb-1">{{ "{:.1f}%".format(((analise.receita_liquida_estimada / analise.receita_total) * 100) if analise.receita_total and analise.receita_total > 0 else 0) }}</h3>
+                            <small class="text-muted">Margem de Lucro</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted">Margem de Lucro</span>
+                        <span class="fw-bold">{{ "{:.1f}%".format(((analise.receita_liquida_estimada / analise.receita_total) * 100) if analise.receita_total and analise.receita_total > 0 else 0) }}</span>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-success" role="progressbar" 
+                             style="width: {{ ((analise.receita_liquida_estimada / analise.receita_total) * 100) if analise.receita_total and analise.receita_total > 0 else 0 }}%">
+                        </div>
+                    </div>
+                </div>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="border-end">
+                            <h6 class="text-primary mb-1">{{ "R$ {:.2f}".format(analise.receita_total or 0) }}</h6>
+                            <small class="text-muted">Receita Bruta</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="border-end">
+                            <h6 class="text-warning mb-1">{{ "R$ {:.2f}".format((analise.receita_total or 0) - (analise.receita_liquida_estimada or 0)) }}</h6>
+                            <small class="text-muted">Custos Totais</small>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <h6 class="text-success mb-1">{{ "R$ {:.2f}".format(analise.receita_liquida_estimada or 0) }}</h6>
+                        <small class="text-muted">Lucro Líquido</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Insights e Recomendações -->
+    <div class="col-12 col-lg-6 mb-4">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-dark border-0 py-3">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-lightbulb me-2 text-white"></i>
+                    Insights e Recomendações
+                </h5>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <div class="mb-3">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle text-info me-2"></i>
+                        <small class="text-muted">Análise inteligente baseada nos seus dados</small>
+                    </div>
+                </div>
+                
+                <!-- Performance Geral -->
+                <div class="mb-4">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-chart-line me-2"></i>Performance Geral
+                    </h6>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center p-2 border rounded bg-light">
+                                <h5 class="text-success mb-1">{{ "{:.1f}%".format(((analise.receita_liquida_estimada / analise.receita_total) * 100) if analise.receita_total and analise.receita_total > 0 else 0) }}</h5>
+                                <small class="text-muted">Margem Atual</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center p-2 border rounded bg-light">
+                                <h5 class="text-info mb-1">{{ analise.total_vendas or 0 }}</h5>
+                                <small class="text-muted">Vendas/Mês</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recomendações -->
+                <div class="flex-grow-1 mb-4">
+                    <h6 class="text-warning mb-3">
+                        <i class="fas fa-star me-2"></i>Recomendações
+                    </h6>
+                    <div class="list-group list-group-flush">
+                        {% if analise.receita_total and analise.receita_total > 0 %}
+                            {% set margem = ((analise.receita_liquida_estimada / analise.receita_total) * 100) if analise.receita_liquida_estimada else 0 %}
+                            {% if margem > 80 %}
+                                <div class="list-group-item border-0 px-0 py-2">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-check-circle text-success me-2 mt-1"></i>
+                                        <div>
+                                            <small class="fw-bold text-success">Excelente margem!</small>
+                                            <br><small class="text-muted">Sua margem de {{ "{:.1f}%".format(margem) }} está muito boa. Continue assim!</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% elif margem > 50 %}
+                                <div class="list-group-item border-0 px-0 py-2">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-info-circle text-info me-2 mt-1"></i>
+                                        <div>
+                                            <small class="fw-bold text-info">Margem boa</small>
+                                            <br><small class="text-muted">Margem de {{ "{:.1f}%".format(margem) }} está adequada. Considere otimizar custos.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="list-group-item border-0 px-0 py-2">
+                                    <div class="d-flex align-items-start">
+                                        <i class="fas fa-exclamation-triangle text-warning me-2 mt-1"></i>
+                                        <div>
+                                            <small class="fw-bold text-warning">Atenção na margem</small>
+                                            <br><small class="text-muted">Margem de {{ "{:.1f}%".format(margem) }} está baixa. Revise preços e custos.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endif %}
+                        
+                        {% if analise.ticket_medio and analise.ticket_medio > 500 %}
+                            <div class="list-group-item border-0 px-0 py-2">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-trophy text-warning me-2 mt-1"></i>
+                                    <div>
+                                        <small class="fw-bold text-warning">Ticket médio alto</small>
+                                        <br><small class="text-muted">R$ {{ "{:.2f}".format(analise.ticket_medio) }} é um bom valor. Foque em produtos premium.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if analise.total_vendas and analise.total_vendas > 1000 %}
+                            <div class="list-group-item border-0 px-0 py-2">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-rocket text-success me-2 mt-1"></i>
+                                    <div>
+                                        <small class="fw-bold text-success">Alto volume de vendas</small>
+                                        <br><small class="text-muted">{{ analise.total_vendas }} vendas no período. Considere expandir estoque.</small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Próximos Passos -->
+                <div class="mt-auto">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-arrow-right me-2"></i>Próximos Passos
+                    </h6>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="window.location.href='/produtos'">
+                            <i class="fas fa-box me-1"></i>Gerenciar Produtos
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="window.location.href='/vendas'">
+                            <i class="fas fa-shopping-cart me-1"></i>Ver Vendas
+                        </button>
+                        <button class="btn btn-outline-info btn-sm" onclick="atualizarAnalise()">
+                            <i class="fas fa-sync me-1"></i>Atualizar Dados
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Produtos -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark border-0 py-3">
+                <h5 class="mb-0 text-white fw-bold">
+                    <i class="fas fa-star me-2 text-white"></i>
+                    Top Produtos por Vendas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle text-info me-2"></i>
+                            <small class="text-muted">Ranking dos produtos com maior volume de vendas</small>
+                        </div>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-primary active" id="btnVendas" onclick="filtrarTopProdutos('vendas')">
+                                <i class="fas fa-shopping-cart me-1"></i>Por Vendas
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="btnReceita" onclick="filtrarTopProdutos('receita')">
+                                <i class="fas fa-dollar-sign me-1"></i>Por Receita
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="btnMargem" onclick="filtrarTopProdutos('margem')">
+                                <i class="fas fa-chart-line me-1"></i>Por Margem
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% if analise.top_produtos %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th class="text-center">#</th>
+                                <th>Produto</th>
+                                <th class="text-end">Preço</th>
+                                <th class="text-center">Vendas</th>
+                                <th class="text-end">Receita</th>
+                                <th class="text-center">Margem</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produto in analise.top_produtos %}
+                            <tr>
+                                <td class="text-center">
+                                    {% if loop.index == 1 %}
+                                        <span class="badge bg-warning fs-6"><i class="fas fa-crown me-1"></i>{{ loop.index }}</span>
+                                    {% elif loop.index <= 3 %}
+                                        <span class="badge bg-success fs-6"><i class="fas fa-medal me-1"></i>{{ loop.index }}</span>
+                                    {% else %}
+                                        <span class="badge bg-primary fs-6">{{ loop.index }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="me-3">
+                                            <div class="bg-primary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                                <i class="fas fa-box text-white"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <strong class="d-block">{{ produto.title[:50] }}{% if produto.title|length > 50 %}...{% endif %}</strong>
+                                            <small class="text-muted">MLB: {{ produto.mlb }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold text-success">{{ "R$ {:.2f}".format(produto.price or 0) }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-success fs-6">{{ produto.sold_quantity }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="fw-bold text-primary">{{ "R$ {:.2f}".format((produto.price or 0) * (produto.sold_quantity or 0)) }}</span>
+                                </td>
+                                <td class="text-center">
+                                    {% set margem = (produto.margem_liquida or 0) %}
+                                    {% if margem >= 10 %}
+                                        <span class="badge bg-success fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                    {% elif margem >= 5 %}
+                                        <span class="badge bg-warning text-dark fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                    {% else %}
+                                        <span class="badge bg-danger fs-6">{{ "{:.1f}%".format(margem) }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-chart-bar fa-4x text-muted mb-4"></i>
+                    <h5 class="text-muted mb-3">Nenhum produto encontrado</h5>
+                    <p class="text-muted mb-4">Importe seus produtos para ver a análise de performance</p>
+                    <a href="/importar" class="btn btn-primary">
+                        <i class="fas fa-download me-2"></i>Importar Produtos
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variáveis globais para os gráficos
+let evolucaoChart = null;
+let categoriaChart = null;
+
+// Carregar dados reais dos gráficos
+async function carregarDadosGraficos() {
+    try {
+        // Importar categorias automaticamente em background
+        importarCategoriasAutomaticamente();
+        
+        // Carregar dados de evolução de vendas
+        const evolucaoResponse = await fetch('/api/analise/evolucao-vendas', {
+            credentials: 'same-origin'
+        });
+        const evolucaoData = await evolucaoResponse.json();
+        
+        // Carregar dados de categorias
+        const categoriaResponse = await fetch('/api/analise/categorias', {
+            credentials: 'same-origin'
+        });
+        const categoriaData = await categoriaResponse.json();
+        
+        // Criar gráfico de evolução das vendas
+        if (evolucaoData.success) {
+            criarGraficoEvolucao(evolucaoData.dados);
+            atualizarResumoVendas(evolucaoData.dados.resumo);
+        } else {
+            criarGraficoEvolucao({labels: [], vendas: [], receitas: []});
+        }
+        
+        // Criar gráfico de categorias
+        if (categoriaData.success) {
+            criarGraficoCategorias(categoriaData.dados);
+            atualizarResumoCategorias(categoriaData.dados.resumo);
+        } else {
+            criarGraficoCategorias({categorias: [], vendas: [], receitas: []});
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar dados dos gráficos:', error);
+        // Criar gráficos com dados vazios em caso de erro
+        criarGraficoEvolucao({semanas: [], vendas: [], receitas: []});
+        criarGraficoCategorias({categorias: [], vendas: [], receitas: []});
+    }
+}
+
+// Criar gráfico de evolução das vendas
+// Atualizar resumo de vendas
+function atualizarResumoVendas(resumo) {
+    const resumoHoje = document.querySelector('.col-4:first-child h6');
+    const resumoSemana = document.querySelector('.col-4:nth-child(2) h6');
+    const resumoMes = document.querySelector('.col-4:last-child h6');
+    
+    if (resumoHoje) resumoHoje.textContent = resumo.hoje || 0;
+    if (resumoSemana) resumoSemana.textContent = resumo.semana || 0;
+    if (resumoMes) resumoMes.textContent = resumo.mes || 0;
+}
+
+// Atualizar resumo de categorias
+function atualizarResumoCategorias(resumo) {
+    const categoriaTop = document.querySelector('.col-6:first-child h6');
+    const totalCategorias = document.querySelector('.col-6:last-child h6');
+    
+    if (categoriaTop) categoriaTop.textContent = resumo.categoria_top || 'N/A';
+    if (totalCategorias) totalCategorias.textContent = resumo.total_categorias || 0;
+}
+
+function criarGraficoEvolucao(data) {
+    const evolucaoCtx = document.getElementById('evolucaoVendasChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (evolucaoChart) {
+        evolucaoChart.destroy();
+    }
+    
+    evolucaoChart = new Chart(evolucaoCtx, {
+        type: 'line',
+        data: {
+            labels: data.semanas.length > 0 ? data.semanas : ['Sem dados'],
+            datasets: [{
+                label: 'Vendas',
+                data: data.vendas.length > 0 ? data.vendas : [0],
+                borderColor: 'rgb(102, 126, 234)',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4,
+                fill: true
+            }, {
+                label: 'Receita (R$)',
+                data: data.receitas.length > 0 ? data.receitas : [0],
+                borderColor: 'rgb(118, 75, 162)',
+                backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                tension: 0.4,
+                fill: true,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+// Criar gráfico de categorias
+function criarGraficoCategorias(data) {
+    const categoriaCtx = document.getElementById('categoriaChart').getContext('2d');
+    
+    // Destruir gráfico anterior se existir
+    if (categoriaChart) {
+        categoriaChart.destroy();
+    }
+    
+    // Cores para as categorias
+    const cores = [
+        'rgb(102, 126, 234)',
+        'rgb(118, 75, 162)',
+        'rgb(54, 162, 235)',
+        'rgb(255, 99, 132)',
+        'rgb(255, 159, 64)',
+        'rgb(255, 205, 86)',
+        'rgb(75, 192, 192)',
+        'rgb(153, 102, 255)',
+        'rgb(201, 203, 207)',
+        'rgb(255, 99, 255)'
+    ];
+    
+    categoriaChart = new Chart(categoriaCtx, {
+        type: 'doughnut',
+        data: {
+            labels: data.categorias.length > 0 ? data.categorias : ['Sem dados'],
+            datasets: [{
+                data: data.vendas.length > 0 ? data.vendas : [1],
+                backgroundColor: cores.slice(0, data.categorias.length || 1)
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+
+// Exportar relatório
+function exportarRelatorio(formato) {
+    alert(`Exportando relatório em formato ${formato.toUpperCase()}...`);
+    // Implementar exportação
+}
+
+// Importar categorias automaticamente
+function importarCategoriasAutomaticamente() {
+    fetch('/importar/categorias', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Categorias importadas automaticamente:', data.message);
+        } else {
+            console.log('⚠️ Aviso na importação de categorias:', data.message);
+        }
+    })
+    .catch(error => {
+        console.log('⚠️ Erro na importação automática de categorias:', error);
+    });
+}
+
+// Atualizar análise
+function atualizarAnalise() {
+    // Mostrar loading
+    const evolucaoCtx = document.getElementById('evolucaoVendasChart').getContext('2d');
+    const categoriaCtx = document.getElementById('categoriaChart').getContext('2d');
+    
+    // Limpar gráficos
+    if (evolucaoChart) {
+        evolucaoChart.destroy();
+        evolucaoChart = null;
+    }
+    if (categoriaChart) {
+        categoriaChart.destroy();
+        categoriaChart = null;
+    }
+    
+    // Mostrar loading nos gráficos
+    evolucaoCtx.clearRect(0, 0, evolucaoCtx.canvas.width, evolucaoCtx.canvas.height);
+    evolucaoCtx.fillStyle = '#f8f9fa';
+    evolucaoCtx.fillRect(0, 0, evolucaoCtx.canvas.width, evolucaoCtx.canvas.height);
+    evolucaoCtx.fillStyle = '#6c757d';
+    evolucaoCtx.font = '16px Arial';
+    evolucaoCtx.textAlign = 'center';
+    evolucaoCtx.fillText('Atualizando dados...', evolucaoCtx.canvas.width / 2, evolucaoCtx.canvas.height / 2);
+    
+    categoriaCtx.clearRect(0, 0, categoriaCtx.canvas.width, categoriaCtx.canvas.height);
+    categoriaCtx.fillStyle = '#f8f9fa';
+    categoriaCtx.fillRect(0, 0, categoriaCtx.canvas.width, categoriaCtx.canvas.height);
+    categoriaCtx.fillStyle = '#6c757d';
+    categoriaCtx.font = '16px Arial';
+    categoriaCtx.textAlign = 'center';
+    categoriaCtx.fillText('Atualizando dados...', categoriaCtx.canvas.width / 2, categoriaCtx.canvas.height / 2);
+    
+    // Recarregar dados
+    carregarDadosGraficos();
+}
+
+// Função para filtrar período de vendas
+function filtrarPeriodo(periodo) {
+    // Remove active de todos os botões
+    document.querySelectorAll('.btn-group button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    // Adiciona active ao botão clicado
+    event.target.classList.add('active');
+    
+    // Atualizar gráfico com novo período
+    atualizarGraficoEvolucao(periodo);
+}
+
+// Função para atualizar gráfico de evolução
+function atualizarGraficoEvolucao(periodo) {
+    const ctx = document.getElementById('evolucaoVendasChart').getContext('2d');
+    
+    // Limpar gráfico atual
+    if (evolucaoChart) {
+        evolucaoChart.destroy();
+        evolucaoChart = null;
+    }
+    
+    // Mostrar loading
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = '#6c757d';
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Carregando dados...', ctx.canvas.width / 2, ctx.canvas.height / 2);
+    
+    // Buscar dados reais da API
+    fetch(`/api/analise/evolucao-vendas?periodo=${periodo}`, {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            criarGraficoEvolucao(data.dados);
+            atualizarResumoVendas(data.dados.resumo);
+        } else {
+            // Fallback para dados vazios
+            criarGraficoEvolucao({labels: [], vendas: [], receitas: []});
+        }
+    })
+    .catch(error => {
+        console.error('Erro ao carregar dados de evolução:', error);
+        // Fallback para dados vazios
+        criarGraficoEvolucao({labels: [], vendas: [], receitas: []});
+    });
+}
+
+
+// Função para criar gráfico de evolução
+function criarGraficoEvolucao(dados) {
+    const ctx = document.getElementById('evolucaoVendasChart').getContext('2d');
+    
+    evolucaoChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dados.labels,
+            datasets: [{
+                label: 'Vendas',
+                data: dados.vendas,
+                borderColor: '#007bff',
+                backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y'
+            }, {
+                label: 'Receita (R$)',
+                data: dados.receitas,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Vendas'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Receita (R$)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            }
+        }
+    });
+}
+
+
+// Função para atualizar estado dos botões
+function atualizarEstadoBotoes(tipo) {
+    // Remover active de todos os botões
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Adicionar active ao botão selecionado
+    const btnId = `btn${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+    const btnSelecionado = document.getElementById(btnId);
+    if (btnSelecionado) {
+        btnSelecionado.classList.add('active');
+    }
+}
+
+// Função para mostrar loading
+function mostrarLoadingTopProdutos() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <div class="mt-2">Carregando produtos...</div>
+            </td>
+        </tr>
+    `;
+}
+
+// Função para buscar todos os produtos
+async function buscarTodosProdutos(tipo) {
+    try {
+        const response = await fetch('/api/produtos?limit=1000&sort=sold_quantity&order=desc', {
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro ao buscar produtos: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const produtos = data.produtos || [];
+        
+        // Ordenar produtos baseado no tipo
+        const produtosOrdenados = ordenarProdutosPorTipo(produtos, tipo);
+        
+        
+        // Mostrar top 10 produtos
+        mostrarTopProdutos(produtosOrdenados.slice(0, 10));
+        
+    } catch (error) {
+        console.error('Erro ao buscar produtos:', error);
+        mostrarErroTopProdutos();
+    }
+}
+
+// Função para ordenar produtos por tipo
+function ordenarProdutosPorTipo(produtos, tipo) {
+    
+    // Criar uma cópia do array para não modificar o original
+    const produtosOrdenados = [...produtos].sort((a, b) => {
+        switch(tipo) {
+            case 'vendas':
+                // Ordenar por vendas (maior para menor), depois por receita, depois por margem
+                const vendasA = a.sold_quantity || 0;
+                const vendasB = b.sold_quantity || 0;
+                
+                if (vendasA !== vendasB) {
+                    return vendasB - vendasA; // Maior para menor
+                }
+                
+                // Critério secundário: receita
+                const receitaA = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB = (b.price || 0) * (b.sold_quantity || 0);
+                if (receitaA !== receitaB) {
+                    return receitaB - receitaA; // Maior para menor
+                }
+                
+                // Critério terciário: margem
+                const margemA = a.margem_liquida || 0;
+                const margemB = b.margem_liquida || 0;
+                return margemB - margemA; // Maior para menor
+                
+            case 'receita':
+                // Ordenar por receita (maior para menor), depois por vendas, depois por margem
+                const receitaA2 = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB2 = (b.price || 0) * (b.sold_quantity || 0);
+                
+                if (receitaA2 !== receitaB2) {
+                    return receitaB2 - receitaA2; // Maior para menor
+                }
+                
+                // Critério secundário: vendas
+                const vendasA2 = a.sold_quantity || 0;
+                const vendasB2 = b.sold_quantity || 0;
+                if (vendasA2 !== vendasB2) {
+                    return vendasB2 - vendasA2; // Maior para menor
+                }
+                
+                // Critério terciário: margem
+                const margemA2 = a.margem_liquida || 0;
+                const margemB2 = b.margem_liquida || 0;
+                return margemB2 - margemA2; // Maior para menor
+                
+            case 'margem':
+                // Ordenar por margem (maior para menor), depois por receita, depois por vendas
+                const margemA3 = a.margem_liquida || 0;
+                const margemB3 = b.margem_liquida || 0;
+                
+                if (margemA3 !== margemB3) {
+                    return margemB3 - margemA3; // Maior para menor
+                }
+                
+                // Critério secundário: receita
+                const receitaA3 = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB3 = (b.price || 0) * (b.sold_quantity || 0);
+                if (receitaA3 !== receitaB3) {
+                    return receitaB3 - receitaA3; // Maior para menor
+                }
+                
+                // Critério terciário: vendas
+                const vendasA3 = a.sold_quantity || 0;
+                const vendasB3 = b.sold_quantity || 0;
+                return vendasB3 - vendasA3; // Maior para menor
+                
+            default:
+                return 0;
+        }
+    });
+    
+    
+    return produtosOrdenados;
+}
+
+// Função para mostrar top produtos
+function mostrarTopProdutos(produtos) {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    
+    if (produtos.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <div>Nenhum produto encontrado</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = produtos.map((produto, index) => {
+        const margem = produto.margem_liquida || 0;
+        const receita = (produto.price || 0) * (produto.sold_quantity || 0);
+        
+        let badgeMargem = '';
+        if (margem >= 10) {
+            badgeMargem = `<span class="badge bg-success fs-6">${margem.toFixed(1)}%</span>`;
+        } else if (margem >= 5) {
+            badgeMargem = `<span class="badge bg-warning text-dark fs-6">${margem.toFixed(1)}%</span>`;
+        } else {
+            badgeMargem = `<span class="badge bg-danger fs-6">${margem.toFixed(1)}%</span>`;
+        }
+        
+        let badgePosicao = '';
+        if (index === 0) {
+            badgePosicao = `<span class="badge bg-warning fs-6"><i class="fas fa-crown me-1"></i>${index + 1}</span>`;
+        } else if (index <= 2) {
+            badgePosicao = `<span class="badge bg-success fs-6"><i class="fas fa-medal me-1"></i>${index + 1}</span>`;
+        } else {
+            badgePosicao = `<span class="badge bg-primary fs-6">${index + 1}</span>`;
+        }
+        
+        return `
+            <tr>
+                <td class="text-center">${badgePosicao}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <div class="bg-primary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-box text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <strong class="d-block">${produto.title ? produto.title.substring(0, 50) + (produto.title.length > 50 ? '...' : '') : 'Sem título'}</strong>
+                            <small class="text-muted">MLB: ${produto.mlb || 'N/A'}</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold text-success">R$ ${(produto.price || 0).toFixed(2)}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success fs-6">${produto.sold_quantity || 0}</span>
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold text-primary">R$ ${receita.toFixed(2)}</span>
+                </td>
+                <td class="text-center">${badgeMargem}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Função para mostrar erro
+function mostrarErroTopProdutos() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <div>Erro ao carregar produtos</div>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="filtrarTopProdutos('vendas')">
+                    <i class="fas fa-redo me-1"></i>Tentar novamente
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+
+
+
+
+
+// Função para atualizar estado dos botões
+function atualizarEstadoBotoes(tipo) {
+    // Remover active de todos os botões
+    document.querySelectorAll('.btn-group .btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Adicionar active ao botão selecionado
+    const btnId = `btn${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`;
+    const btnSelecionado = document.getElementById(btnId);
+    if (btnSelecionado) {
+        btnSelecionado.classList.add('active');
+    }
+}
+
+// Função para mostrar loading
+function mostrarLoadingTopProdutos() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Carregando...</span>
+                </div>
+                <div class="mt-2">Carregando produtos...</div>
+            </td>
+        </tr>
+    `;
+}
+
+// Função para buscar todos os produtos
+async function buscarTodosProdutos(tipo) {
+    try {
+        const response = await fetch('/api/produtos?limit=1000&sort=sold_quantity&order=desc', {
+            credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro ao buscar produtos: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const produtos = data.produtos || [];
+        
+        // Ordenar produtos baseado no tipo
+        const produtosOrdenados = ordenarProdutosPorTipo(produtos, tipo);
+        
+        
+        // Mostrar top 10 produtos
+        mostrarTopProdutos(produtosOrdenados.slice(0, 10));
+        
+    } catch (error) {
+        console.error('Erro ao buscar produtos:', error);
+        mostrarErroTopProdutos();
+    }
+}
+
+// Função para ordenar produtos por tipo
+function ordenarProdutosPorTipo(produtos, tipo) {
+    
+    // Criar uma cópia do array para não modificar o original
+    const produtosOrdenados = [...produtos].sort((a, b) => {
+        switch(tipo) {
+            case 'vendas':
+                // Ordenar por vendas (maior para menor), depois por receita, depois por margem
+                const vendasA = a.sold_quantity || 0;
+                const vendasB = b.sold_quantity || 0;
+                
+                if (vendasA !== vendasB) {
+                    return vendasB - vendasA; // Maior para menor
+                }
+                
+                // Critério secundário: receita
+                const receitaA = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB = (b.price || 0) * (b.sold_quantity || 0);
+                if (receitaA !== receitaB) {
+                    return receitaB - receitaA; // Maior para menor
+                }
+                
+                // Critério terciário: margem
+                const margemA = a.margem_liquida || 0;
+                const margemB = b.margem_liquida || 0;
+                return margemB - margemA; // Maior para menor
+                
+            case 'receita':
+                // Ordenar por receita (maior para menor), depois por vendas, depois por margem
+                const receitaA2 = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB2 = (b.price || 0) * (b.sold_quantity || 0);
+                
+                if (receitaA2 !== receitaB2) {
+                    return receitaB2 - receitaA2; // Maior para menor
+                }
+                
+                // Critério secundário: vendas
+                const vendasA2 = a.sold_quantity || 0;
+                const vendasB2 = b.sold_quantity || 0;
+                if (vendasA2 !== vendasB2) {
+                    return vendasB2 - vendasA2; // Maior para menor
+                }
+                
+                // Critério terciário: margem
+                const margemA2 = a.margem_liquida || 0;
+                const margemB2 = b.margem_liquida || 0;
+                return margemB2 - margemA2; // Maior para menor
+                
+            case 'margem':
+                // Ordenar por margem (maior para menor), depois por receita, depois por vendas
+                const margemA3 = a.margem_liquida || 0;
+                const margemB3 = b.margem_liquida || 0;
+                
+                if (margemA3 !== margemB3) {
+                    return margemB3 - margemA3; // Maior para menor
+                }
+                
+                // Critério secundário: receita
+                const receitaA3 = (a.price || 0) * (a.sold_quantity || 0);
+                const receitaB3 = (b.price || 0) * (b.sold_quantity || 0);
+                if (receitaA3 !== receitaB3) {
+                    return receitaB3 - receitaA3; // Maior para menor
+                }
+                
+                // Critério terciário: vendas
+                const vendasA3 = a.sold_quantity || 0;
+                const vendasB3 = b.sold_quantity || 0;
+                return vendasB3 - vendasA3; // Maior para menor
+                
+            default:
+                return 0;
+        }
+    });
+    
+    
+    return produtosOrdenados;
+}
+
+// Função para mostrar top produtos
+function mostrarTopProdutos(produtos) {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    
+    if (produtos.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <div>Nenhum produto encontrado</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = produtos.map((produto, index) => {
+        const margem = produto.margem_liquida || 0;
+        const receita = (produto.price || 0) * (produto.sold_quantity || 0);
+        
+        let badgeMargem = '';
+        if (margem >= 10) {
+            badgeMargem = `<span class="badge bg-success fs-6">${margem.toFixed(1)}%</span>`;
+        } else if (margem >= 5) {
+            badgeMargem = `<span class="badge bg-warning text-dark fs-6">${margem.toFixed(1)}%</span>`;
+        } else {
+            badgeMargem = `<span class="badge bg-danger fs-6">${margem.toFixed(1)}%</span>`;
+        }
+        
+        let badgePosicao = '';
+        if (index === 0) {
+            badgePosicao = `<span class="badge bg-warning fs-6"><i class="fas fa-crown me-1"></i>${index + 1}</span>`;
+        } else if (index <= 2) {
+            badgePosicao = `<span class="badge bg-success fs-6"><i class="fas fa-medal me-1"></i>${index + 1}</span>`;
+        } else {
+            badgePosicao = `<span class="badge bg-primary fs-6">${index + 1}</span>`;
+        }
+        
+        return `
+            <tr>
+                <td class="text-center">${badgePosicao}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="me-3">
+                            <div class="bg-primary rounded d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fas fa-box text-white"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <strong class="d-block">${produto.title ? produto.title.substring(0, 50) + (produto.title.length > 50 ? '...' : '') : 'Sem título'}</strong>
+                            <small class="text-muted">MLB: ${produto.mlb || 'N/A'}</small>
+                        </div>
+                    </div>
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold text-success">R$ ${(produto.price || 0).toFixed(2)}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success fs-6">${produto.sold_quantity || 0}</span>
+                </td>
+                <td class="text-end">
+                    <span class="fw-bold text-primary">R$ ${receita.toFixed(2)}</span>
+                </td>
+                <td class="text-center">${badgeMargem}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Função para mostrar erro
+function mostrarErroTopProdutos() {
+    const tbody = document.querySelector('tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <div>Erro ao carregar produtos</div>
+                <button class="btn btn-sm btn-outline-primary mt-2" onclick="filtrarTopProdutos('vendas')">
+                    <i class="fas fa-redo me-1"></i>Tentar novamente
+                </button>
+            </td>
+        </tr>
+    `;
+}
+
+// Função para filtrar top produtos
+function filtrarTopProdutos(tipo) {
+    // Atualizar estado dos botões
+    atualizarEstadoBotoes(tipo);
+    
+    // Mostrar loading
+    mostrarLoadingTopProdutos();
+    
+    // Buscar todos os produtos via API
+    buscarTodosProdutos(tipo);
+}
+
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    // Carregar dados reais dos gráficos
+    carregarDadosGraficos();
+    
+    // Carregar top produtos por vendas por padrão
+    filtrarTopProdutos('vendas');
+    
+    // Adicionar event listeners alternativos
+    document.getElementById('btnVendas')?.addEventListener('click', () => filtrarTopProdutos('vendas'));
+    document.getElementById('btnReceita')?.addEventListener('click', () => filtrarTopProdutos('receita'));
+    document.getElementById('btnMargem')?.addEventListener('click', () => filtrarTopProdutos('margem'));
+});
+</script>
+{% endblock %}
+
