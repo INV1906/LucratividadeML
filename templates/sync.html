@@ -1,0 +1,462 @@
+{% extends "base.html" %}
+
+{% block page_title %}Sincronização Incremental{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header da Página -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <h1 class="h2 mb-1 text-primary">
+                        <i class="fas fa-sync-alt me-3"></i>Sincronização Incremental
+                    </h1>
+                    <p class="text-muted mb-0">Sistema inteligente que detecta apenas mudanças ocorridas durante períodos offline</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" onclick="atualizarStatus()">
+                        <i class="fas fa-sync me-1"></i>Atualizar Status
+                    </button>
+                    <button class="btn btn-primary" onclick="inicializarSistema()">
+                        <i class="fas fa-play me-1"></i>Inicializar Sistema
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status da Sincronização -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-header bg-dark border-0 py-3">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-chart-line text-white me-2"></i>
+                        Status da Sincronização
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="syncStatusContainer">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Carregando...</span>
+                            </div>
+                            <p class="mt-3 text-muted">Carregando status da sincronização...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles de Sincronização -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm border-0 h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-header bg-success border-0 py-3">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-shopping-cart text-white me-2"></i>
+                        Sincronização de Vendas
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="text-muted mb-3">
+                        Sincroniza apenas vendas modificadas desde a última sincronização
+                    </p>
+                    <div class="mt-auto">
+                        <button class="btn btn-success w-100" onclick="sincronizarVendas()" id="btnSyncVendas">
+                            <i class="fas fa-sync me-1"></i>Sincronizar Vendas
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-3">
+            <div class="card shadow-sm border-0 h-100" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                <div class="card-header bg-info border-0 py-3">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-box text-white me-2"></i>
+                        Sincronização de Produtos
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="text-muted mb-3">
+                        Sincroniza apenas produtos modificados desde a última sincronização
+                    </p>
+                    <div class="mt-auto">
+                        <button class="btn btn-info w-100" onclick="sincronizarProdutos()" id="btnSyncProdutos">
+                            <i class="fas fa-sync me-1"></i>Sincronizar Produtos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Histórico de Sincronizações -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark border-0 py-3">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-history text-white me-2"></i>
+                        Histórico de Sincronizações
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Loading -->
+                    <div id="loadingHistory" class="text-center py-5" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Carregando...</span>
+                        </div>
+                        <p class="mt-3 text-muted">Carregando histórico...</p>
+                    </div>
+
+                    <!-- Tabela -->
+                    <div id="historyTable" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Iniciado</th>
+                                        <th>Concluído</th>
+                                        <th>Status</th>
+                                        <th>Processados</th>
+                                        <th>Criados</th>
+                                        <th>Atualizados</th>
+                                        <th>Erros</th>
+                                        <th>Duração</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTableBody">
+                                    <!-- Dados carregados via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Estado Vazio -->
+                    <div id="emptyHistory" class="text-center py-5" style="display: none;">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Nenhuma sincronização encontrada</h5>
+                        <p class="text-muted">Execute uma sincronização para ver o histórico</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Inicializar página
+document.addEventListener('DOMContentLoaded', function() {
+    carregarStatusSync();
+    carregarHistoricoSync();
+});
+
+function carregarStatusSync() {
+    const container = document.getElementById('syncStatusContainer');
+    
+    fetch('/api/sync/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarStatusSync(data.sync_status);
+            } else {
+                mostrarErroStatus(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar status:', error);
+            mostrarErroStatus('Erro de conexão');
+        });
+}
+
+function mostrarStatusSync(syncStatus) {
+    const container = document.getElementById('syncStatusContainer');
+    
+    let html = '<div class="row">';
+    
+    const tipos = ['vendas', 'produtos', 'webhooks'];
+    const cores = {
+        'vendas': 'success',
+        'produtos': 'info', 
+        'webhooks': 'warning'
+    };
+    const icones = {
+        'vendas': 'shopping-cart',
+        'produtos': 'box',
+        'webhooks': 'bell'
+    };
+    
+    tipos.forEach(tipo => {
+        const status = syncStatus[tipo] || {};
+        const cor = cores[tipo];
+        const icone = icones[tipo];
+        
+        html += `
+            <div class="col-md-4 mb-3">
+                <div class="card border-0 h-100" style="background: rgba(255,255,255,0.8);">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="fas fa-${icone} fa-2x text-${cor}"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-2">${tipo.charAt(0).toUpperCase() + tipo.slice(1)}</h6>
+                        <div class="mb-2">
+                            <span class="badge bg-${status.status === 'success' ? 'success' : status.status === 'error' ? 'danger' : 'warning'}">
+                                ${status.status || 'Nunca'}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            ${status.last_successful ? formatarDataHora(status.last_successful) : 'Nunca sincronizado'}
+                        </small>
+                        ${status.error ? `<br><small class="text-danger">${status.error}</small>` : ''}
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                Frequência: ${status.frequency_minutes || 15} min
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function mostrarErroStatus(mensagem) {
+    const container = document.getElementById('syncStatusContainer');
+    container.innerHTML = `
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+            <h5 class="text-danger">Erro ao carregar status</h5>
+            <p class="text-muted">${mensagem}</p>
+            <button class="btn btn-outline-primary" onclick="carregarStatusSync()">
+                <i class="fas fa-sync me-1"></i>Tentar Novamente
+            </button>
+        </div>
+    `;
+}
+
+function carregarHistoricoSync() {
+    document.getElementById('loadingHistory').style.display = 'block';
+    document.getElementById('historyTable').style.display = 'none';
+    document.getElementById('emptyHistory').style.display = 'none';
+    
+    fetch('/api/sync/history?limit=20')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarHistoricoSync(data.history);
+            } else {
+                mostrarErroHistorico(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar histórico:', error);
+            mostrarErroHistorico('Erro de conexão');
+        })
+        .finally(() => {
+            document.getElementById('loadingHistory').style.display = 'none';
+        });
+}
+
+function mostrarHistoricoSync(historico) {
+    if (historico.length === 0) {
+        document.getElementById('emptyHistory').style.display = 'block';
+        return;
+    }
+    
+    const tbody = document.getElementById('historyTableBody');
+    tbody.innerHTML = '';
+    
+    historico.forEach(item => {
+        const row = document.createElement('tr');
+        
+        const statusBadge = getStatusBadge(item.status);
+        const duracao = item.sync_duration_seconds ? `${item.sync_duration_seconds}s` : 'N/A';
+        
+        row.innerHTML = `
+            <td>
+                <span class="badge bg-${getTipoCor(item.sync_type)}">
+                    ${item.sync_type.charAt(0).toUpperCase() + item.sync_type.slice(1)}
+                </span>
+            </td>
+            <td>${formatarDataHora(item.started_at)}</td>
+            <td>${item.completed_at ? formatarDataHora(item.completed_at) : 'Em andamento'}</td>
+            <td>${statusBadge}</td>
+            <td><span class="badge bg-primary">${item.items_processed || 0}</span></td>
+            <td><span class="badge bg-success">${item.items_created || 0}</span></td>
+            <td><span class="badge bg-info">${item.items_updated || 0}</span></td>
+            <td><span class="badge bg-danger">${item.items_errors || 0}</span></td>
+            <td>${duracao}</td>
+        `;
+        
+        tbody.appendChild(row);
+    });
+    
+    document.getElementById('historyTable').style.display = 'block';
+}
+
+function mostrarErroHistorico(mensagem) {
+    document.getElementById('emptyHistory').innerHTML = `
+        <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+        <h5 class="text-danger">Erro ao carregar histórico</h5>
+        <p class="text-muted">${mensagem}</p>
+        <button class="btn btn-outline-primary" onclick="carregarHistoricoSync()">
+            <i class="fas fa-sync me-1"></i>Tentar Novamente
+        </button>
+    `;
+    document.getElementById('emptyHistory').style.display = 'block';
+}
+
+function sincronizarVendas() {
+    const btn = document.getElementById('btnSyncVendas');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+    btn.disabled = true;
+    
+    fetch('/api/sync/vendas', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Sincronização de vendas concluída!\n\nProcessados: ${data.items}\nCriados: ${data.created}\nAtualizados: ${data.updated}\nErros: ${data.errors}`);
+            carregarStatusSync();
+            carregarHistoricoSync();
+        } else {
+            alert(`❌ Erro na sincronização: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('❌ Erro ao sincronizar vendas');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function sincronizarProdutos() {
+    const btn = document.getElementById('btnSyncProdutos');
+    const originalText = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
+    btn.disabled = true;
+    
+    fetch('/api/sync/produtos', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Sincronização de produtos concluída!\n\nProcessados: ${data.items}\nCriados: ${data.created}\nAtualizados: ${data.updated}\nErros: ${data.errors}`);
+            carregarStatusSync();
+            carregarHistoricoSync();
+        } else {
+            alert(`❌ Erro na sincronização: ${data.message}`);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('❌ Erro ao sincronizar produtos');
+    })
+    .finally(() => {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function inicializarSistema() {
+    if (confirm('Deseja inicializar o sistema de sincronização incremental?')) {
+        fetch('/api/sync/initialize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ Sistema de sincronização inicializado com sucesso!');
+                carregarStatusSync();
+            } else {
+                alert(`❌ Erro na inicialização: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('❌ Erro ao inicializar sistema');
+        });
+    }
+}
+
+function atualizarStatus() {
+    carregarStatusSync();
+    carregarHistoricoSync();
+}
+
+// Funções auxiliares
+function formatarDataHora(data) {
+    if (!data) return 'N/A';
+    return new Date(data).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'success': '<span class="badge bg-success">Sucesso</span>',
+        'error': '<span class="badge bg-danger">Erro</span>',
+        'partial': '<span class="badge bg-warning">Parcial</span>',
+        'running': '<span class="badge bg-info">Executando</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Desconhecido</span>';
+}
+
+function getTipoCor(tipo) {
+    const cores = {
+        'vendas': 'success',
+        'produtos': 'info',
+        'webhooks': 'warning'
+    };
+    return cores[tipo] || 'secondary';
+}
+</script>
+
+<style>
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+.btn {
+    transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+</style>
+{% endblock %}

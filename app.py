@@ -66,7 +66,7 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
-            return redirect(url_for('login'))
+            return redirect(url_for('auth'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -843,6 +843,127 @@ def get_shipping_statistics():
         })
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro ao obter estatísticas: {e}'})
+
+# APIs de Sincronização Incremental
+@app.route('/api/sync/status')
+@login_required
+def get_sync_status():
+    """Retorna status atual da sincronização para o usuário."""
+    user_id = session.get('user_id')
+    
+    try:
+        from sync_manager import obter_sync_manager
+        sync_manager = obter_sync_manager()
+        status = sync_manager.obter_status_sincronizacao(user_id)
+        
+        return jsonify({
+            'success': True,
+            'sync_status': status
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro ao obter status de sincronização: {e}'})
+
+@app.route('/api/sync/vendas', methods=['POST'])
+@login_required
+def sync_vendas_manual():
+    """Força sincronização manual de vendas."""
+    user_id = session.get('user_id')
+    
+    try:
+        from sync_manager import obter_sync_manager
+        sync_manager = obter_sync_manager()
+        
+        # Inicializar sincronização se necessário
+        sync_manager.inicializar_sync_usuario(user_id)
+        
+        # Executar sincronização
+        result = sync_manager.sincronizar_vendas_incremental(user_id)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro na sincronização de vendas: {e}'})
+
+@app.route('/api/sync/produtos', methods=['POST'])
+@login_required
+def sync_produtos_manual():
+    """Força sincronização manual de produtos."""
+    user_id = session.get('user_id')
+    
+    try:
+        from sync_manager import obter_sync_manager
+        sync_manager = obter_sync_manager()
+        
+        # Inicializar sincronização se necessário
+        sync_manager.inicializar_sync_usuario(user_id)
+        
+        # Executar sincronização
+        result = sync_manager.sincronizar_produtos_incremental(user_id)
+        
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro na sincronização de produtos: {e}'})
+
+@app.route('/api/sync/history')
+@login_required
+def get_sync_history():
+    """Retorna histórico de sincronizações."""
+    user_id = session.get('user_id')
+    limit = request.args.get('limit', 50, type=int)
+    
+    try:
+        conn = db.conectar()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Erro de conexão'})
+        
+        with conn.cursor(dictionary=True) as cursor:
+            cursor.execute("""
+                SELECT sync_type, started_at, completed_at, status, 
+                       items_processed, items_created, items_updated, 
+                       items_errors, error_message, sync_duration_seconds
+                FROM sync_history 
+                WHERE user_id = %s 
+                ORDER BY started_at DESC 
+                LIMIT %s
+            """, (user_id, limit))
+            
+            history = cursor.fetchall()
+            
+            return jsonify({
+                'success': True,
+                'history': history
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro ao obter histórico: {e}'})
+    finally:
+        if conn.is_connected():
+            conn.close()
+
+@app.route('/api/sync/initialize', methods=['POST'])
+@login_required
+def initialize_sync():
+    """Inicializa sistema de sincronização para o usuário."""
+    user_id = session.get('user_id')
+    
+    try:
+        from sync_manager import obter_sync_manager
+        sync_manager = obter_sync_manager()
+        
+        success = sync_manager.inicializar_sync_usuario(user_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Sistema de sincronização inicializado com sucesso'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Erro ao inicializar sistema de sincronização'
+            })
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro na inicialização: {e}'})
 
 
 @app.route('/callback')
@@ -2154,6 +2275,15 @@ def perfil():
         flash('Erro ao carregar informações do perfil', 'error')
         return redirect(url_for('dashboard'))
 
+@app.route('/sync')
+@login_required
+def sync():
+    """Página de sincronização incremental."""
+    if 'user_id' not in session:
+        flash('Você precisa fazer login primeiro', 'warning')
+        return redirect(url_for('index'))
+    
+    return render_template('sync.html')
 
 @app.errorhandler(404)
 def not_found(error):
@@ -2409,10 +2539,269 @@ def processar_notificacao_pergunta(resource, user_id):
     except Exception as e:
         print(f"❌ Erro ao processar notificação de pergunta: {e}")
 
+# ===== ROTAS DE EXPORTAÇÃO =====
+
+@app.route('/api/exportar/relatorio/<formato>')
+@login_required
+def exportar_relatorio(formato):
+    """Exporta relatório de análise no formato especificado."""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Usuário não autenticado'})
+    
+    try:
+        user_id = session['user_id']
+        
+        # Validar formato
+        formatos_validos = ['pdf', 'excel', 'csv']
+        if formato not in formatos_validos:
+            return jsonify({'success': False, 'message': 'Formato inválido'})
+        
+        # Obter dados de análise
+        analise_data = db.obter_dados_analise_completa(user_id)
+        
+        if not analise_data:
+            return jsonify({'success': False, 'message': 'Nenhum dado encontrado para exportação'})
+        
+        # Gerar arquivo baseado no formato
+        if formato == 'csv':
+            return gerar_csv_relatorio(analise_data)
+        elif formato == 'excel':
+            return gerar_excel_relatorio(analise_data)
+        elif formato == 'pdf':
+            return gerar_pdf_relatorio(analise_data)
+            
+    except Exception as e:
+        print(f"❌ Erro ao exportar relatório: {e}")
+        return jsonify({'success': False, 'message': f'Erro interno: {str(e)}'})
+
+def gerar_csv_relatorio(analise_data):
+    """Gera relatório em formato CSV."""
+    import csv
+    import io
+    from datetime import datetime
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Cabeçalho
+    writer.writerow(['RELATÓRIO DE ANÁLISE - MERCADO LIVRE'])
+    writer.writerow(['Data de Geração:', datetime.now().strftime('%d/%m/%Y %H:%M:%S')])
+    writer.writerow([])
+    
+    # Resumo Geral
+    writer.writerow(['RESUMO GERAL'])
+    writer.writerow(['Total de Vendas', analise_data.get('total_vendas', 0)])
+    writer.writerow(['Receita Total', f"R$ {analise_data.get('receita_total', 0):.2f}"])
+    writer.writerow(['Ticket Médio', f"R$ {analise_data.get('ticket_medio', 0):.2f}"])
+    writer.writerow(['Receita Líquida Estimada', f"R$ {analise_data.get('receita_liquida_estimada', 0):.2f}"])
+    writer.writerow([])
+    
+    # Top Produtos
+    if analise_data.get('top_produtos'):
+        writer.writerow(['TOP PRODUTOS'])
+        writer.writerow(['MLB', 'Título', 'Vendas', 'Receita', 'Margem'])
+        for produto in analise_data['top_produtos']:
+            writer.writerow([
+                produto.get('mlb', ''),
+                produto.get('titulo', ''),
+                produto.get('vendas', 0),
+                f"R$ {produto.get('receita', 0):.2f}",
+                f"{produto.get('margem', 0):.1f}%"
+            ])
+    
+    # Preparar resposta
+    output.seek(0)
+    csv_content = output.getvalue()
+    output.close()
+    
+    # Criar resposta HTTP
+    response = make_response(csv_content)
+    response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+    response.headers['Content-Disposition'] = f'attachment; filename=relatorio_analise_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    
+    return response
+
+def gerar_excel_relatorio(analise_data):
+    """Gera relatório em formato Excel."""
+    try:
+        import pandas as pd
+        from datetime import datetime
+        import io
+        
+        # Criar DataFrame com dados de resumo
+        resumo_data = {
+            'Métrica': [
+                'Total de Vendas',
+                'Receita Total',
+                'Ticket Médio',
+                'Receita Líquida Estimada',
+                'Margem de Lucro (%)'
+            ],
+            'Valor': [
+                analise_data.get('total_vendas', 0),
+                f"R$ {analise_data.get('receita_total', 0):.2f}",
+                f"R$ {analise_data.get('ticket_medio', 0):.2f}",
+                f"R$ {analise_data.get('receita_liquida_estimada', 0):.2f}",
+                f"{((analise_data.get('receita_liquida_estimada', 0) / analise_data.get('receita_total', 1)) * 100):.1f}%"
+            ]
+        }
+        
+        df_resumo = pd.DataFrame(resumo_data)
+        
+        # Criar DataFrame com top produtos
+        df_produtos = pd.DataFrame()
+        if analise_data.get('top_produtos'):
+            produtos_data = []
+            for produto in analise_data['top_produtos']:
+                produtos_data.append({
+                    'MLB': produto.get('mlb', ''),
+                    'Título': produto.get('titulo', ''),
+                    'Vendas': produto.get('vendas', 0),
+                    'Receita': f"R$ {produto.get('receita', 0):.2f}",
+                    'Margem (%)': f"{produto.get('margem', 0):.1f}%"
+                })
+            df_produtos = pd.DataFrame(produtos_data)
+        
+        # Criar arquivo Excel em memória
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df_resumo.to_excel(writer, sheet_name='Resumo Geral', index=False)
+            if not df_produtos.empty:
+                df_produtos.to_excel(writer, sheet_name='Top Produtos', index=False)
+        
+        output.seek(0)
+        
+        # Preparar resposta HTTP
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename=relatorio_analise_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        return response
+        
+    except ImportError:
+        # Se pandas não estiver disponível, retornar CSV
+        return gerar_csv_relatorio(analise_data)
+    except Exception as e:
+        print(f"❌ Erro ao gerar Excel: {e}")
+        return gerar_csv_relatorio(analise_data)
+
+def gerar_pdf_relatorio(analise_data):
+    """Gera relatório em formato PDF."""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from datetime import datetime
+        import io
+        
+        # Criar documento PDF em memória
+        output = io.BytesIO()
+        doc = SimpleDocTemplate(output, pagesize=A4)
+        styles = getSampleStyleSheet()
+        
+        # Estilo personalizado para título
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1  # Centralizado
+        )
+        
+        # Conteúdo do PDF
+        story = []
+        
+        # Título
+        story.append(Paragraph("RELATÓRIO DE ANÁLISE - MERCADO LIVRE", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Data de geração
+        story.append(Paragraph(f"<b>Data de Geração:</b> {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Resumo Geral
+        story.append(Paragraph("RESUMO GERAL", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        resumo_data = [
+            ['Métrica', 'Valor'],
+            ['Total de Vendas', str(analise_data.get('total_vendas', 0))],
+            ['Receita Total', f"R$ {analise_data.get('receita_total', 0):.2f}"],
+            ['Ticket Médio', f"R$ {analise_data.get('ticket_medio', 0):.2f}"],
+            ['Receita Líquida Estimada', f"R$ {analise_data.get('receita_liquida_estimada', 0):.2f}"],
+            ['Margem de Lucro', f"{((analise_data.get('receita_liquida_estimada', 0) / analise_data.get('receita_total', 1)) * 100):.1f}%"]
+        ]
+        
+        resumo_table = Table(resumo_data)
+        resumo_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(resumo_table)
+        story.append(Spacer(1, 20))
+        
+        # Top Produtos
+        if analise_data.get('top_produtos'):
+            story.append(Paragraph("TOP PRODUTOS", styles['Heading2']))
+            story.append(Spacer(1, 12))
+            
+            produtos_data = [['MLB', 'Título', 'Vendas', 'Receita', 'Margem (%)']]
+            for produto in analise_data['top_produtos']:
+                produtos_data.append([
+                    produto.get('mlb', ''),
+                    produto.get('titulo', '')[:30] + '...' if len(produto.get('titulo', '')) > 30 else produto.get('titulo', ''),
+                    str(produto.get('vendas', 0)),
+                    f"R$ {produto.get('receita', 0):.2f}",
+                    f"{produto.get('margem', 0):.1f}%"
+                ])
+            
+            produtos_table = Table(produtos_data)
+            produtos_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('FONTSIZE', (0, 1), (-1, -1), 10)
+            ]))
+            
+            story.append(produtos_table)
+        
+        # Construir PDF
+        doc.build(story)
+        output.seek(0)
+        
+        # Preparar resposta HTTP
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'attachment; filename=relatorio_analise_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        
+        return response
+        
+    except ImportError:
+        # Se reportlab não estiver disponível, retornar CSV
+        return gerar_csv_relatorio(analise_data)
+    except Exception as e:
+        print(f"❌ Erro ao gerar PDF: {e}")
+        return gerar_csv_relatorio(analise_data)
+
 if __name__ == '__main__':
     # Cria tabelas se não existirem
     db.criar_tabelas()
-    
+
     # Inicia monitor de tokens automaticamente
     try:
         start_token_monitoring()
@@ -2420,13 +2809,29 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"⚠️ Erro ao iniciar monitor de tokens: {e}")
 
+    # Inicia sistema de sincronização incremental
+    try:
+        from sync_manager import inicializar_sync_manager
+        sync_manager = inicializar_sync_manager()
+        
+        # Inicializar sincronização para usuários existentes
+        usuarios_com_tokens = db.obter_usuarios_com_tokens()
+        for user_id in usuarios_com_tokens:
+            sync_manager.inicializar_sync_usuario(user_id)
+        
+        # Iniciar sincronização automática
+        sync_manager.iniciar_sincronizacao_automatica()
+        print("🔄 Sistema de sincronização incremental iniciado automaticamente")
+    except Exception as e:
+        print(f"⚠️ Erro ao iniciar sistema de sincronização: {e}")
+
     # Obtém porta do ambiente ou usa 3001 como padrão
     port = int(os.getenv('PORT', 3001))
-    
+
     # Configurar para HTTPS quando usando ngrok
     ssl_context = None
     if os.getenv('NGROK_HTTPS') == 'true':
         ssl_context = 'adhoc'  # Gera certificado auto-assinado
-    
+
     # Inicia aplicação
     app.run(debug=True, host='0.0.0.0', port=port, ssl_context=ssl_context)

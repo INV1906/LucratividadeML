@@ -151,20 +151,20 @@
 
             <!-- Tabela -->
             <div id="tabelaVendas" style="display: none;">
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0">
+                <div class="table-responsive" style="overflow-x: auto; max-width: 100%;">
+                    <table class="table table-hover mb-0" style="min-width: 1200px; table-layout: fixed;">
                         <thead class="table-dark">
                             <tr>
-                                <th style="width: 100px;">ID da Venda</th>
-                                <th style="width: 80px;">Data</th>
-                                <th style="width: 150px;">Comprador</th>
-                                <th style="width: 250px;">Produtos</th>
-                                <th style="width: 80px;" class="text-end">Valor</th>
-                                <th style="width: 60px;" class="text-center">Taxa</th>
-                                <th style="width: 60px;" class="text-center">Frete</th>
-                                <th style="width: 80px;" class="text-center">Pagamento</th>
-                                <th style="width: 80px;" class="text-center">Envio</th>
-                                <th style="width: 100px;" class="text-center">Ações</th>
+                                <th style="width: 12%; min-width: 120px;">ID da Venda</th>
+                                <th style="width: 8%; min-width: 80px;">Data</th>
+                                <th style="width: 12%; min-width: 120px;">Comprador</th>
+                                <th style="width: 25%; min-width: 200px;">Produtos</th>
+                                <th style="width: 8%; min-width: 80px;" class="text-end">Valor</th>
+                                <th style="width: 7%; min-width: 70px;" class="text-center">Taxa</th>
+                                <th style="width: 7%; min-width: 70px;" class="text-center">Frete</th>
+                                <th style="width: 8%; min-width: 80px;" class="text-center">Pagamento</th>
+                                <th style="width: 8%; min-width: 80px;" class="text-center">Envio</th>
+                                <th style="width: 15%; min-width: 150px;" class="text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody id="tabelaVendasBody">
@@ -382,15 +382,20 @@ function mostrarVendas(vendas, pagination, totais) {
                 <span class="badge ${getStatusEnvioBadgeClass(pack.status_envio)}">${pack.status_envio_pt || getStatusEnvioTexto(pack.status_envio)}</span>
             </td>
             <td class="text-center">
-                <div class="d-flex gap-2 justify-content-center">
-                    <a href="/detalhes-pack/${packId}" class="btn btn-info btn-sm shadow-sm" title="Ver Detalhes" style="border-radius: 8px; font-weight: 600;">
-                        <i class="fas fa-eye me-1"></i>Detalhes
-                    </a>
-                    <button class="btn btn-success btn-sm shadow-sm" onclick="calcularLucratividadePack('${packId}')" title="Calcular Lucratividade" style="border-radius: 8px; font-weight: 600;">
-                        <i class="fas fa-calculator me-1"></i>Lucro
+                <div class="d-flex flex-column gap-1 align-items-center" style="min-width: 140px;">
+                    <div class="d-flex gap-1">
+                        <a href="/detalhes-pack/${packId}" class="btn btn-info btn-sm shadow-sm" title="Ver Detalhes" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <button class="btn btn-success btn-sm shadow-sm" onclick="calcularLucratividadePack('${packId}')" title="Calcular Lucratividade" style="border-radius: 6px; font-weight: 600; font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                            <i class="fas fa-calculator"></i>
                         </button>
                     </div>
-                </td>
+                    <div class="text-center">
+                        <small class="text-muted">Detalhes | Lucro</small>
+                    </div>
+                </div>
+            </td>
         `;
         tbody.appendChild(row);
     });
@@ -402,6 +407,9 @@ function mostrarVendas(vendas, pagination, totais) {
     document.getElementById('tabelaVendas').style.display = 'block';
     document.getElementById('estadoVazio').style.display = 'none';
     document.getElementById('estadoErro').style.display = 'none';
+    
+    // Ajustar responsividade da tabela
+    ajustarResponsividadeTabela();
 }
 
 function mostrarEstadoVazio() {
@@ -1617,6 +1625,46 @@ function mostrarDetalhesCustos(mlb, item) {
     const modal = new bootstrap.Modal(document.getElementById('modalDetalhesCustos'));
     modal.show();
 }
+
+// Função para ajustar responsividade da tabela
+function ajustarResponsividadeTabela() {
+    const tabela = document.querySelector('#tabelaVendas .table-responsive table');
+    const container = document.querySelector('#tabelaVendas .table-responsive');
+    
+    if (!tabela || !container) return;
+    
+    const larguraTela = window.innerWidth;
+    const larguraContainer = container.offsetWidth;
+    
+    // Ajustar largura mínima da tabela baseada no tamanho da tela
+    if (larguraTela < 1200) {
+        tabela.style.minWidth = '1000px';
+    } else if (larguraTela < 1400) {
+        tabela.style.minWidth = '1100px';
+    } else {
+        tabela.style.minWidth = '1200px';
+    }
+    
+    // Ajustar tamanho da fonte baseado na largura da tela
+    if (larguraTela < 1200) {
+        tabela.style.fontSize = '0.75rem';
+    } else if (larguraTela < 1400) {
+        tabela.style.fontSize = '0.8rem';
+    } else {
+        tabela.style.fontSize = '0.875rem';
+    }
+}
+
+// Executar ajuste quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    ajustarResponsividadeTabela();
+});
+
+// Executar ajuste quando a janela for redimensionada
+window.addEventListener('resize', function() {
+    ajustarResponsividadeTabela();
+});
+
 </script>
 
 <style>
@@ -1629,6 +1677,90 @@ a[href*="mercadolivre.com.br/vendas/"]:hover strong {
     color: #0d6efd !important;
     text-decoration: underline;
     transform: translateY(-1px);
+}
+
+/* Responsividade da tabela de vendas */
+.table-responsive {
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.table-responsive table {
+    font-size: 0.875rem;
+}
+
+.table-responsive th {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.75rem 0.5rem;
+    white-space: nowrap;
+}
+
+.table-responsive td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+    word-wrap: break-word;
+}
+
+/* Ajustes para telas menores */
+@media (max-width: 1400px) {
+    .table-responsive table {
+        font-size: 0.8rem;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+@media (max-width: 1200px) {
+    .table-responsive table {
+        font-size: 0.75rem;
+    }
+    
+    .table-responsive th,
+    .table-responsive td {
+        padding: 0.4rem 0.2rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.7rem !important;
+        padding: 0.2rem 0.4rem !important;
+    }
+}
+
+/* Garantir que os botões sempre sejam visíveis */
+.table-responsive .btn {
+    min-width: 32px;
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Scroll horizontal suave */
+.table-responsive {
+    scrollbar-width: thin;
+    scrollbar-color: #6c757d #f8f9fa;
+}
+
+.table-responsive::-webkit-scrollbar {
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #6c757d;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #495057;
 }
 </style>
 {% endblock %}

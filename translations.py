@@ -100,22 +100,32 @@ class PortugueseTranslator:
     
     def translate_payment_status(self, status: str) -> str:
         """Traduz status de pagamento"""
+        if not status or not isinstance(status, str):
+            return str(status) if status is not None else 'unknown'
         return self.payment_status.get(status.lower(), status)
     
     def translate_shipping_method(self, method: str) -> str:
         """Traduz método de envio"""
+        if not method or not isinstance(method, str):
+            return str(method) if method is not None else 'unknown'
         return self.shipping_methods.get(method.lower(), method)
     
     def translate_payment_method(self, method: str) -> str:
         """Traduz método de pagamento"""
+        if not method or not isinstance(method, str):
+            return str(method) if method is not None else 'unknown'
         return self.payment_methods.get(method.lower(), method)
     
     def translate_order_status(self, status: str) -> str:
         """Traduz status de pedido"""
+        if not status or not isinstance(status, str):
+            return str(status) if status is not None else 'unknown'
         return self.order_status.get(status.lower(), status)
     
     def translate_ui_text(self, text: str) -> str:
         """Traduz texto da interface"""
+        if not text or not isinstance(text, str):
+            return str(text) if text is not None else ''
         return self.ui_texts.get(text.lower(), text)
     
     def translate_venda_data(self, venda_data: Dict[str, Any]) -> Dict[str, Any]:

@@ -1,0 +1,161 @@
+{
+  "id": 2000013113228770,
+  "date_created": "2025-09-20T16:31:40.000-04:00",
+  "last_updated": "2025-09-20T16:33:17.000-04:00",
+  "date_closed": "2025-09-20T16:32:26.000-04:00",
+  "pack_id": 2000009288172661,
+  "fulfilled": null,
+  "buying_mode": "buy_equals_pay",
+  "shipping_cost": null,
+  "mediations": [],
+  "total_amount": 1486.23,
+  "paid_amount": 1486.23,
+  "order_items": [
+    {
+      "item": {
+        "id": "MLB3284145301",
+        "title": "Vinho Tinto Cartuxa Colheita Portugues 750ml Kit 6 Und",
+        "category_id": "MLB1405",
+        "variation_id": null,
+        "seller_custom_field": null,
+        "variation_attributes": [],
+        "warranty": "Garantia do vendedor: 10 dias",
+        "condition": "new",
+        "seller_sku": "04",
+        "global_price": null,
+        "net_weight": null,
+        "user_product_id": "MLBU1744227101",
+        "release_date": null,
+        "attributes": [
+          {
+            "id": "ITEM_CONDITION",
+            "values": [
+              {
+                "id": "2230284"
+              }
+            ]
+          }
+        ]
+      },
+      "quantity": 1,
+      "requested_quantity": {
+        "measure": "unit",
+        "value": 1
+      },
+      "picked_quantity": null,
+      "unit_price": 1486.23,
+      "full_unit_price": 1630.0,
+      "full_unit_price_currency_id": "BRL",
+      "currency_id": "BRL",
+      "manufacturing_days": null,
+      "sale_fee": 193.7,
+      "listing_type_id": "gold_special",
+      "base_exchange_rate": null,
+      "base_currency_id": null,
+      "element_id": null,
+      "discounts": null,
+      "bundle": null,
+      "compat_id": null,
+      "stock": null,
+      "kit_instance_id": null
+    }
+  ],
+  "currency_id": "BRL",
+  "payments": [
+    {
+      "id": 126389042235,
+      "order_id": 2000013113228770,
+      "payer_id": 1595475298,
+      "collector": {
+        "id": 1305538297
+      },
+      "card_id": null,
+      "reason": "Vinho Tinto Cartuxa Colheita Portugues 750ml Kit 6 Und",
+      "site_id": "MLB",
+      "payment_method_id": "account_money",
+      "currency_id": "BRL",
+      "installments": 1,
+      "issuer_id": "2007",
+      "atm_transfer_reference": {
+        "transaction_id": null,
+        "company_id": null
+      },
+      "coupon_id": null,
+      "activation_uri": null,
+      "operation_type": "regular_payment",
+      "payment_type": "account_money",
+      "available_actions": [
+        "refund"
+      ],
+      "status": "approved",
+      "status_code": null,
+      "status_detail": "accredited",
+      "transaction_amount": 1486.23,
+      "transaction_amount_refunded": 0.0,
+      "taxes_amount": 0.0,
+      "shipping_cost": 0.0,
+      "coupon_amount": 0.0,
+      "overpaid_amount": 0.0,
+      "total_paid_amount": 1617.29,
+      "installment_amount": null,
+      "deferred_period": null,
+      "date_approved": "2025-09-20T16:32:25.000-04:00",
+      "transaction_order_id": null,
+      "date_created": "2025-09-20T16:32:25.000-04:00",
+      "date_last_modified": "2025-09-20T16:32:25.000-04:00",
+      "marketplace_fee": 193.7,
+      "reference_id": null,
+      "authorization_code": null
+    }
+  ],
+  "shipping": {
+    "id": 45546863223
+  },
+  "status": "paid",
+  "status_detail": null,
+  "tags": [
+    "b2b",
+    "pack_order",
+    "order_has_discount",
+    "paid",
+    "not_delivered"
+  ],
+  "internal_tags": [
+    "fraud-no-cash-advance"
+  ],
+  "static_tags": [],
+  "feedback": {
+    "seller": null,
+    "buyer": null
+  },
+  "context": {
+    "channel": "marketplace",
+    "site": "MLB",
+    "flows": [
+      "b2b"
+    ]
+  },
+  "seller": {
+    "id": 1305538297
+  },
+  "buyer": {
+    "id": 1595475298,
+    "nickname": "RIJA20231216073129",
+    "first_name": "STORBEM E STORBEM SERVICOS MED",
+    "last_name": "",
+    "billing_info": {
+      "id": "757338105892405949"
+    }
+  },
+  "taxes": {
+    "amount": null,
+    "currency_id": null,
+    "id": null
+  },
+  "cancel_detail": null,
+  "manufacturing_ending_date": null,
+  "order_request": {
+    "change": null,
+    "return": null
+  }
+}

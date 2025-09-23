@@ -524,13 +524,33 @@ async function carregarDadosGraficos() {
         const evolucaoResponse = await fetch('/api/analise/evolucao-vendas', {
             credentials: 'same-origin'
         });
-        const evolucaoData = await evolucaoResponse.json();
+        
+        let evolucaoData = {success: false, dados: {labels: [], vendas: [], receitas: [], resumo: {hoje: 0, semana: 0, mes: 0}}};
+        if (evolucaoResponse.ok) {
+            try {
+                evolucaoData = await evolucaoResponse.json();
+            } catch (e) {
+                console.error('Erro ao parsear JSON de evolução:', e);
+            }
+        } else {
+            console.error('Erro na API de evolução:', evolucaoResponse.status, evolucaoResponse.statusText);
+        }
         
         // Carregar dados de categorias
         const categoriaResponse = await fetch('/api/analise/categorias', {
             credentials: 'same-origin'
         });
-        const categoriaData = await categoriaResponse.json();
+        
+        let categoriaData = {success: false, dados: {categorias: [], vendas: [], receitas: [], resumo: {categoria_top: 'N/A', total_categorias: 0}}};
+        if (categoriaResponse.ok) {
+            try {
+                categoriaData = await categoriaResponse.json();
+            } catch (e) {
+                console.error('Erro ao parsear JSON de categorias:', e);
+            }
+        } else {
+            console.error('Erro na API de categorias:', categoriaResponse.status, categoriaResponse.statusText);
+        }
         
         // Criar gráfico de evolução das vendas
         if (evolucaoData.success) {
@@ -675,8 +695,97 @@ function criarGraficoCategorias(data) {
 
 // Exportar relatório
 function exportarRelatorio(formato) {
-    alert(`Exportando relatório em formato ${formato.toUpperCase()}...`);
-    // Implementar exportação
+    // Mostrar loading no dropdown toggle
+    const dropdownToggle = document.querySelector('.btn-group .dropdown-toggle');
+    const originalText = dropdownToggle.innerHTML;
+    dropdownToggle.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Gerando...';
+    dropdownToggle.disabled = true;
+    
+    // Fazer requisição para API
+    fetch(`/api/exportar/relatorio/${formato}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro HTTP: ${response.status}`);
+            }
+            
+            // Obter nome do arquivo do header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = `relatorio_analise_${new Date().toISOString().slice(0,10)}.${formato}`;
+            
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (filenameMatch) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            // Retornar tanto o blob quanto o filename
+            return response.blob().then(blob => ({ blob, filename }));
+        })
+        .then(({ blob, filename }) => {
+            // Criar link de download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Mostrar sucesso
+            showToast(`Relatório ${formato.toUpperCase()} gerado com sucesso!`, 'success');
+        })
+        .catch(error => {
+            console.error('Erro ao exportar relatório:', error);
+            showToast(`Erro ao gerar relatório: ${error.message}`, 'error');
+        })
+        .finally(() => {
+            // Restaurar botão
+            dropdownToggle.innerHTML = originalText;
+            dropdownToggle.disabled = false;
+        });
+}
+
+// Função para mostrar toast de notificação
+function showToast(message, type = 'info') {
+    // Criar elemento toast
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} me-2"></i>
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    // Adicionar ao container de toasts
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Inicializar e mostrar toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remover elemento após esconder
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
 }
 
 // Importar categorias automaticamente

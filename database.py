@@ -10,8 +10,65 @@ import json
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+# Importar funções de tradução
+try:
+    from translations import (
+        translate_payment_status, 
+        translate_payment_method, 
+        translate_shipping_method, 
+        translate_order_status
+    )
+except ImportError:
+    # Funções de fallback se o módulo não estiver disponível
+    def translate_payment_status(status): return status
+    def translate_payment_method(method): return method
+    def translate_shipping_method(method): return method
+    def translate_order_status(status): return status
+
 # Carrega as variáveis de ambiente
 load_dotenv()
+
+def safe_float(value, default=0.0):
+    """Conversão segura para float"""
+    if value is None or value == '' or value == 'N/A':
+        return default
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_int(value, default=0):
+    """Conversão segura para int"""
+    if value is None or value == '' or value == 'N/A':
+        return default
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_str(value, default=''):
+    """Conversão segura para string"""
+    if value is None:
+        return default
+    return str(value)
+
+def safe_datetime(value):
+    """Conversão segura para datetime"""
+    if not value:
+        return None
+    
+    try:
+        # Converter formato ISO para datetime do MySQL
+        if isinstance(value, str):
+            # Remover 'Z' e converter para formato MySQL
+            if value.endswith('Z'):
+                value = value[:-1]
+            # Converter para datetime
+            from datetime import datetime
+            return datetime.fromisoformat(value)
+        return value
+    except (ValueError, TypeError):
+        return None
 
 class DatabaseManager:
     """Classe para gerenciar conexões e operações do banco de dados."""
@@ -1050,17 +1107,17 @@ class DatabaseManager:
                         vendas.append(0)
                         receitas.append(0)
                 
-                # Resumo
+                # Resumo - garantir que todos os valores sejam tipos Python nativos
                 resumo = {
-                    'hoje': hoje[0] if hoje and hoje[0] else 0,
-                    'semana': semana[0] if semana and semana[0] else 0,
-                    'mes': mes[0] if mes and mes[0] else 0
+                    'hoje': int(hoje[0]) if hoje and hoje[0] else 0,
+                    'semana': int(semana[0]) if semana and semana[0] else 0,
+                    'mes': int(mes[0]) if mes and mes[0] else 0
                 }
                 
                 return {
                     'labels': labels,
-                    'vendas': vendas,
-                    'receitas': receitas,
+                    'vendas': [int(v) for v in vendas],
+                    'receitas': [float(r) for r in receitas],
                     'resumo': resumo
                 }
                 
@@ -1078,42 +1135,45 @@ class DatabaseManager:
         
         try:
             with conn.cursor() as cursor:
-                # Buscar vendas por categoria
+                # Buscar vendas por categoria (primeiro sem nomes)
                 cursor.execute("""
                     SELECT 
-                        COALESCE(c.name, p.category) as categoria_nome,
+                        vi.categoria_nome,
                         COUNT(*) as vendas,
-                        SUM(v.valor_total) as receita
-                    FROM vendas v
-                    JOIN venda_itens vi ON v.venda_id = vi.venda_id AND v.user_id = vi.user_id
-                    JOIN produtos p ON p.mlb = vi.item_mlb
-                    LEFT JOIN categorias_mlb c ON c.id = p.category
-                    WHERE v.user_id = %s
-                    AND p.category IS NOT NULL AND p.category != ''
-                    GROUP BY p.category, c.name
+                        SUM(vi.preco_total) as receita
+                    FROM venda_itens vi
+                    WHERE vi.user_id = %s
+                    AND vi.categoria_nome IS NOT NULL AND vi.categoria_nome != ''
+                    GROUP BY vi.categoria_nome
                     ORDER BY vendas DESC
                     LIMIT 10
                 """, (user_id,))
                 
                 categorias_data = cursor.fetchall()
                 
+                # Buscar nomes das categorias
+                cursor.execute("SELECT id, name FROM categorias_mlb")
+                categorias_mlb = {row[0]: row[1] for row in cursor.fetchall()}
+                
                 # Buscar total de categorias
                 cursor.execute("""
-                    SELECT COUNT(DISTINCT p.category) as total_categorias
-                    FROM produtos p
-                    WHERE p.user_id = %s
-                    AND p.category IS NOT NULL AND p.category != ''
+                    SELECT COUNT(DISTINCT vi.categoria_nome) as total_categorias
+                    FROM venda_itens vi
+                    WHERE vi.user_id = %s
+                    AND vi.categoria_nome IS NOT NULL AND vi.categoria_nome != ''
                 """, (user_id,))
                 
                 total_result = cursor.fetchone()
                 total_categorias = total_result[0] if total_result else 0
                 
-                # Preparar dados para o gráfico
+                # Preparar dados para o gráfico com nomes das categorias
                 categorias = []
                 vendas = []
                 receitas = []
                 
-                for categoria_nome, vendas_count, receita in categorias_data:
+                for categoria_codigo, vendas_count, receita in categorias_data:
+                    # Usar nome da categoria se disponível, senão usar código
+                    categoria_nome = categorias_mlb.get(categoria_codigo, categoria_codigo)
                     categorias.append(categoria_nome or 'Sem categoria')
                     vendas.append(vendas_count)
                     receitas.append(float(receita) if receita else 0)
@@ -2883,6 +2943,37 @@ class DatabaseManager:
             if conn.is_connected():
                 conn.close()
     
+    def _buscar_frete_shipments(self, shipping_id: str, user_id: int) -> Optional[float]:
+        """Busca o valor do frete na API de shipments do Mercado Livre."""
+        try:
+            import requests
+            
+            # Obter access token
+            access_token = self.obter_access_token(user_id)
+            if not access_token:
+                return None
+            
+            # Buscar dados do shipment
+            url = f'https://api.mercadolibre.com/shipments/{shipping_id}'
+            headers = {"Authorization": f"Bearer {access_token}"}
+            
+            response = requests.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Extrair valor do frete do shipping_option.list_cost
+            shipping_option = data.get('shipping_option')
+            if shipping_option:
+                valor_frete = shipping_option.get('list_cost')
+                if valor_frete:
+                    return float(valor_frete)
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Erro ao buscar frete na API de shipments {shipping_id}: {e}")
+            return None
+
     def _calcular_margem_produto(self, mlb: str, user_id: int) -> float:
         """Calcula a margem líquida de um produto usando a mesma lógica do profitability.py."""
         conn = self.conectar()
@@ -3022,10 +3113,86 @@ class DatabaseManager:
                 total_produtos += quantidade
             
             # Obtém dados reais de frete e taxas
+            print(f"🔍 Iniciando busca de frete para venda {venda_id}")
+            # Primeiro tenta buscar no shipping
             frete_total = float(shipping.get('cost', 0))
+            print(f"🚚 Frete inicial do shipping: R$ {frete_total:.2f}")
+            
+            # Se não encontrar no shipping, busca nos pagamentos
+            if frete_total == 0:
+                payments = dados_venda.get('payments', [])
+                for payment in payments:
+                    shipping_cost = payment.get('shipping_cost', 0)
+                    if shipping_cost and shipping_cost > 0:
+                        frete_total = float(shipping_cost)
+                        break
+            
+            # Se ainda não encontrar, busca em billing_info
+            if frete_total == 0:
+                billing = dados_venda.get('billing_info', {})
+                if billing:
+                    # Verifica se há custos de frete no billing
+                    shipping_cost = billing.get('shipping_cost', 0)
+                    if shipping_cost and shipping_cost > 0:
+                        frete_total = float(shipping_cost)
+            
+            # Se ainda não encontrar frete, busca na API de shipments
+            if frete_total == 0:
+                shipping_id = shipping.get('id')
+                print(f"🔍 Tentando buscar frete para shipping_id: {shipping_id}")
+                if shipping_id:
+                    try:
+                        # Busca o frete na API de shipments
+                        print(f"🚚 Chamando _buscar_frete_shipments para {shipping_id}")
+                        frete_data = self._buscar_frete_shipments(shipping_id, user_id)
+                        print(f"📊 Resultado da busca: {frete_data}")
+                        if frete_data:
+                            frete_total = float(frete_data)
+                            print(f"🚚 Frete encontrado na API de shipments: R$ {frete_total:.2f}")
+                        else:
+                            print(f"❌ Frete não encontrado na API de shipments")
+                    except Exception as e:
+                        print(f"❌ Erro ao buscar frete na API de shipments: {e}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"❌ Shipping ID não encontrado: {shipping_id}")
+            
+            # Se ainda não encontrar frete, calcula baseado na diferença da taxa ML
+            # A API às vezes não retorna o frete separadamente, mas ele está incluído na taxa ML
+            if frete_total == 0:
+                # Calcula taxa ML esperada baseada no valor do produto
+                taxa_ml_esperada = valor_total * 0.14  # 14% é a taxa padrão do ML
+                
+                # Se a taxa ML retornada pela API for menor que a esperada,
+                # a diferença pode ser o custo de frete
+                if taxa_ml < taxa_ml_esperada:
+                    diferenca_taxa = taxa_ml_esperada - taxa_ml
+                    # Se a diferença for razoável (entre R$ 10 e R$ 50), assume que é frete
+                    if 10 <= diferenca_taxa <= 50:
+                        frete_total = diferenca_taxa
+                        print(f"💰 Frete calculado baseado na diferença da taxa ML: R$ {frete_total:.2f}")
+            
+            # Aplica desconto/bônus se disponível
+            desconto_bonus = 0
+            # Busca desconto nos dados da venda (pode estar em diferentes campos)
+            if 'discounts' in dados_venda and dados_venda['discounts']:
+                desconto_bonus = float(dados_venda['discounts'].get('amount', 0))
+            elif 'coupon_amount' in dados_venda:
+                desconto_bonus = float(dados_venda.get('coupon_amount', 0))
+            
+            # Se não encontrar desconto explícito, calcula baseado na diferença
+            if desconto_bonus == 0:
+                # Calcula desconto baseado na diferença entre taxa ML esperada e real
+                taxa_ml_esperada = valor_total * 0.14
+                if taxa_ml < taxa_ml_esperada:
+                    diferenca_taxa = taxa_ml_esperada - taxa_ml
+                    # Se a diferença não foi usada para frete, pode ser desconto
+                    if diferenca_taxa > 0 and frete_total == 0:
+                        desconto_bonus = diferenca_taxa
+                        print(f"🎁 Desconto calculado baseado na diferença da taxa ML: R$ {desconto_bonus:.2f}")
             
             # Calcula taxa ML baseada nos dados disponíveis
-            billing = dados_venda.get('billing_info', {})
             taxa_ml = 0
             
             if billing:
@@ -3055,7 +3222,7 @@ class DatabaseManager:
                     
                     # Obtém categoria do item
                     categoria_id = item.get('item', {}).get('category_id', '')
-                    categoria_nome = item.get('item', {}).get('category_name', '').lower()
+                    categoria_nome = safe_str(item.get('item', {}).get('category_name', '')).lower()
                     
                     # Taxa baseada na categoria (valores reais do ML 2024)
                     taxa_item = 0
@@ -3095,6 +3262,11 @@ class DatabaseManager:
                             taxa_item = preco_total * 0.19  # 19% para produtos muito caros
                     
                     taxa_ml += taxa_item
+            
+            # Aplica desconto/bônus na taxa ML final
+            if desconto_bonus > 0:
+                taxa_ml = max(0, taxa_ml - desconto_bonus)
+                print(f"🎁 Taxa ML ajustada com desconto: R$ {taxa_ml:.2f}")
             
             # Insere venda principal
             cursor.execute("""
@@ -3825,6 +3997,7 @@ class DatabaseManager:
 
     def salvar_venda_com_status(self, dados_venda: Dict[str, Any], user_id: int) -> bool:
         """Salva/atualiza venda com informações de status detalhado."""
+        print(f"🚀 Iniciando salvar_venda_com_status para user_id: {user_id}")
         conn = self.conectar()
         if not conn:
             return False
@@ -3841,20 +4014,72 @@ class DatabaseManager:
                 comprador_nome = buyer.get('nickname', '')
                 comprador_email = buyer.get('email', '')
                 
-                # Datas
-                data_aprovacao = dados_venda.get('date_closed')  # Usar date_closed como data de aprovação
-                data_criacao = dados_venda.get('date_created')
+                # Datas (conversão segura)
+                data_aprovacao = safe_datetime(dados_venda.get('date_closed'))  # Usar date_closed como data de aprovação
+                data_criacao = safe_datetime(dados_venda.get('date_created'))
                 
-                # Valores (tratando None)
-                valor_total = float(dados_venda.get('total_amount') or 0)
+                # Valores (tratando None com conversões seguras)
+                valor_total = safe_float(dados_venda.get('total_amount'), 0)
                 
                 # Calcular taxa ML dos payments
                 taxa_ml = 0
                 payments = dados_venda.get('payments', [])
                 if payments:
-                    taxa_ml = float(payments[0].get('marketplace_fee', 0))
+                    taxa_ml = safe_float(payments[0].get('marketplace_fee'), 0)
                 
-                frete_total = float(dados_venda.get('shipping_cost') or 0)
+                # Busca frete em múltiplas fontes
+                shipping = dados_venda.get('shipping', {})
+                frete_total = float(shipping.get('cost', 0))
+                
+                # Se não encontrar no shipping, busca nos pagamentos
+                if frete_total == 0:
+                    payments = dados_venda.get('payments', [])
+                    for payment in payments:
+                        shipping_cost = payment.get('shipping_cost', 0)
+                        if shipping_cost and shipping_cost > 0:
+                            frete_total = float(shipping_cost)
+                            break
+                
+                # Se ainda não encontrar, busca em billing_info
+                if frete_total == 0:
+                    billing = dados_venda.get('billing_info', {})
+                    if billing:
+                        shipping_cost = billing.get('shipping_cost', 0)
+                        if shipping_cost and shipping_cost > 0:
+                            frete_total = float(shipping_cost)
+                
+                # Se ainda não encontrar frete, busca na API de shipments
+                if frete_total == 0:
+                    shipping_id = shipping.get('id')
+                    if shipping_id:
+                        try:
+                            frete_data = self._buscar_frete_shipments(shipping_id, user_id)
+                            if frete_data:
+                                frete_total = float(frete_data)
+                                print(f"🚚 Frete encontrado na API de shipments: R$ {frete_total:.2f}")
+                        except Exception as e:
+                            print(f"❌ Erro ao buscar frete na API de shipments: {e}")
+                
+                # Aplica desconto/bônus se disponível
+                desconto_bonus = 0
+                if 'discounts' in dados_venda and dados_venda['discounts']:
+                    desconto_bonus = float(dados_venda['discounts'].get('amount', 0))
+                elif 'coupon_amount' in dados_venda:
+                    desconto_bonus = float(dados_venda.get('coupon_amount', 0))
+                
+                # Se não encontrar desconto explícito, calcula baseado na diferença
+                if desconto_bonus == 0:
+                    taxa_ml_esperada = valor_total * 0.14
+                    if taxa_ml < taxa_ml_esperada:
+                        diferenca_taxa = taxa_ml_esperada - taxa_ml
+                        if diferenca_taxa > 0 and frete_total == 0:
+                            desconto_bonus = diferenca_taxa
+                            print(f"🎁 Desconto calculado baseado na diferença da taxa ML: R$ {desconto_bonus:.2f}")
+                
+                # Aplica desconto na taxa ML final
+                if desconto_bonus > 0:
+                    taxa_ml = max(0, taxa_ml - desconto_bonus)
+                    print(f"🎁 Taxa ML ajustada com desconto: R$ {taxa_ml:.2f}")
                 
                 # Status detalhado dos payments com tradução
                 from translations import translate_payment_status, translate_payment_method, translate_shipping_method
@@ -4006,8 +4231,8 @@ class DatabaseManager:
                         """, (
                             user_id, venda_id, item.get('item', {}).get('id', ''),
                             item.get('item', {}).get('id', ''), item.get('item', {}).get('title', ''), 
-                            item.get('quantity', 0), float(item.get('unit_price') or 0), 
-                            float(item.get('unit_price') or 0) * item.get('quantity', 0),
+                            safe_int(item.get('quantity'), 0), safe_float(item.get('unit_price'), 0), 
+                            safe_float(item.get('unit_price'), 0) * safe_int(item.get('quantity'), 0),
                             item.get('item', {}).get('category_id', '')
                         ))
                 
@@ -4346,4 +4571,250 @@ class DatabaseManager:
             return []
         finally:
             conn.close()
+    
+    def verificar_venda_existe(self, user_id: int, venda_id: str) -> bool:
+        """Verifica se uma venda já existe no banco de dados"""
+        conn = self.conectar()
+        if not conn:
+            return False
+            
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM vendas 
+                    WHERE user_id = %s AND venda_id = %s
+                """, (user_id, venda_id))
+                
+                return cursor.fetchone()[0] > 0
+                
+        except Error as e:
+            print(f"❌ Erro ao verificar venda existente: {e}")
+            return False
+        finally:
+            if conn.is_connected():
+                conn.close()
+    
+    def verificar_produto_existe(self, user_id: int, produto_id: str) -> bool:
+        """Verifica se um produto já existe no banco de dados"""
+        conn = self.conectar()
+        if not conn:
+            return False
+            
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM produtos 
+                    WHERE user_id = %s AND produto_id = %s
+                """, (user_id, produto_id))
+                
+                return cursor.fetchone()[0] > 0
+                
+        except Error as e:
+            print(f"❌ Erro ao verificar produto existente: {e}")
+            return False
+        finally:
+            if conn.is_connected():
+                conn.close()
+    
+    def salvar_produto_completo(self, dados_produto: Dict[str, Any], user_id: int) -> bool:
+        """Salva produto completo no banco de dados"""
+        conn = self.conectar()
+        if not conn:
+            return False
+            
+        try:
+            with conn.cursor() as cursor:
+                produto_id = dados_produto.get('id')
+                titulo = dados_produto.get('title', '')
+                categoria_id = dados_produto.get('category_id', '')
+                preco = float(dados_produto.get('price', 0))
+                moeda = dados_produto.get('currency_id', 'BRL')
+                quantidade_disponivel = int(dados_produto.get('available_quantity', 0))
+                quantidade_vendida = int(dados_produto.get('sold_quantity', 0))
+                condicao = dados_produto.get('condition', 'new')
+                status = dados_produto.get('status', 'active')
+                permalink = dados_produto.get('permalink', '')
+                thumbnail = dados_produto.get('thumbnail', '')
+                data_criacao = dados_produto.get('date_created')
+                data_modificacao = dados_produto.get('last_updated')
+                
+                # Converter datas
+                if data_criacao:
+                    data_criacao = datetime.fromisoformat(data_criacao.replace('Z', '+00:00'))
+                if data_modificacao:
+                    data_modificacao = datetime.fromisoformat(data_modificacao.replace('Z', '+00:00'))
+                
+                # Inserir/atualizar produto
+                cursor.execute("""
+                    INSERT INTO produtos (
+                        user_id, produto_id, titulo, categoria_id, preco, moeda,
+                        quantidade_disponivel, quantidade_vendida, condicao, status,
+                        permalink, thumbnail, data_criacao, data_modificacao,
+                        created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                    ON DUPLICATE KEY UPDATE
+                        titulo = VALUES(titulo),
+                        categoria_id = VALUES(categoria_id),
+                        preco = VALUES(preco),
+                        moeda = VALUES(moeda),
+                        quantidade_disponivel = VALUES(quantidade_disponivel),
+                        quantidade_vendida = VALUES(quantidade_vendida),
+                        condicao = VALUES(condicao),
+                        status = VALUES(status),
+                        permalink = VALUES(permalink),
+                        thumbnail = VALUES(thumbnail),
+                        data_criacao = VALUES(data_criacao),
+                        data_modificacao = VALUES(data_modificacao),
+                        updated_at = NOW()
+                """, (
+                    user_id, produto_id, titulo, categoria_id, preco, moeda,
+                    quantidade_disponivel, quantidade_vendida, condicao, status,
+                    permalink, thumbnail, data_criacao, data_modificacao
+                ))
+                
+                conn.commit()
+                return True
+                
+        except Error as e:
+            print(f"❌ Erro ao salvar produto: {e}")
+            return False
+        finally:
+            if conn.is_connected():
+                conn.close()
+    
+    def obter_usuarios_com_tokens(self) -> List[int]:
+        """Obtém lista de usuários que possuem tokens válidos"""
+        conn = self.conectar()
+        if not conn:
+            return []
+            
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT DISTINCT user_id FROM tokens 
+                    WHERE access_token IS NOT NULL AND access_token != ''
+                """)
+                
+                return [row[0] for row in cursor.fetchall()]
+                
+        except Error as e:
+            print(f"❌ Erro ao obter usuários com tokens: {e}")
+            return []
+        finally:
+            if conn.is_connected():
+                conn.close()
+
+    def obter_dados_analise_completa(self, user_id: int) -> Dict[str, Any]:
+        """Obtém dados completos para análise e exportação de relatórios"""
+        conn = self.conectar()
+        if not conn:
+            return {}
+            
+        try:
+            with conn.cursor(dictionary=True) as cursor:
+                # Resumo geral
+                cursor.execute("""
+                    SELECT 
+                        COUNT(*) as total_vendas,
+                        SUM(valor_total) as receita_total,
+                        AVG(valor_total) as ticket_medio,
+                        SUM(valor_total - taxa_ml - frete_total) as receita_liquida_estimada
+                    FROM vendas 
+                    WHERE user_id = %s
+                """, (user_id,))
+                
+                resumo = cursor.fetchone() or {}
+                
+                # Top produtos por vendas
+                cursor.execute("""
+                    SELECT 
+                        vi.item_mlb as mlb,
+                        vi.item_titulo as titulo,
+                        COUNT(*) as vendas,
+                        SUM(vi.preco_total) as receita,
+                        AVG((vi.preco_total - vi.preco_total * 0.1) / vi.preco_total * 100) as margem
+                    FROM venda_itens vi
+                    JOIN vendas v ON vi.venda_id = v.venda_id
+                    WHERE v.user_id = %s
+                    GROUP BY vi.item_mlb, vi.item_titulo
+                    ORDER BY vendas DESC
+                    LIMIT 10
+                """, (user_id,))
+                
+                top_produtos = cursor.fetchall()
+                
+                # Vendas por período
+                cursor.execute("""
+                    SELECT 
+                        DATE(data_aprovacao) as data,
+                        COUNT(*) as vendas_dia,
+                        SUM(valor_total) as receita_dia
+                    FROM vendas 
+                    WHERE user_id = %s 
+                    AND data_aprovacao >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+                    GROUP BY DATE(data_aprovacao)
+                    ORDER BY data DESC
+                """, (user_id,))
+                
+                vendas_por_dia = cursor.fetchall()
+                
+                # Categorias mais vendidas
+                cursor.execute("""
+                    SELECT 
+                        vi.categoria_nome as categoria,
+                        COUNT(*) as vendas,
+                        SUM(vi.preco_total) as receita
+                    FROM venda_itens vi
+                    JOIN vendas v ON vi.venda_id = v.venda_id
+                    WHERE v.user_id = %s
+                    GROUP BY vi.categoria_nome
+                    ORDER BY vendas DESC
+                    LIMIT 5
+                """, (user_id,))
+                
+                top_categorias = cursor.fetchall()
+                
+                # Estatísticas de pagamento
+                cursor.execute("""
+                    SELECT 
+                        status_pagamento_pt as status,
+                        COUNT(*) as quantidade
+                    FROM vendas 
+                    WHERE user_id = %s
+                    GROUP BY status_pagamento_pt
+                """, (user_id,))
+                
+                status_pagamento = cursor.fetchall()
+                
+                # Estatísticas de envio
+                cursor.execute("""
+                    SELECT 
+                        status_envio_pt as status,
+                        COUNT(*) as quantidade
+                    FROM vendas 
+                    WHERE user_id = %s
+                    GROUP BY status_envio_pt
+                """, (user_id,))
+                
+                status_envio = cursor.fetchall()
+                
+                return {
+                    'total_vendas': resumo.get('total_vendas', 0),
+                    'receita_total': float(resumo.get('receita_total', 0)),
+                    'ticket_medio': float(resumo.get('ticket_medio', 0)),
+                    'receita_liquida_estimada': float(resumo.get('receita_liquida_estimada', 0)),
+                    'top_produtos': top_produtos,
+                    'vendas_por_dia': vendas_por_dia,
+                    'top_categorias': top_categorias,
+                    'status_pagamento': status_pagamento,
+                    'status_envio': status_envio,
+                    'data_geracao': datetime.now().strftime('%d/%m/%Y %H:%M:%S')
+                }
+                
+        except Error as e:
+            print(f"❌ Erro ao obter dados de análise: {e}")
+            return {}
+        finally:
+            if conn.is_connected():
+                conn.close()
 
