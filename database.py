@@ -82,14 +82,29 @@ class DatabaseManager:
     def conectar(self) -> Optional[mysql.connector.connection.MySQLConnection]:
         """Estabelece conexão com o banco de dados."""
         try:
-            conn = mysql.connector.connect(
-                host=self.host,
-                user=self.user,
-                password=self.password,
-                database=self.database,
-                charset='utf8mb4',
-                collation='utf8mb4_unicode_ci'
-            )
+            # Configuração específica para Vercel/PlanetScale
+            config = {
+                'host': self.host,
+                'user': self.user,
+                'password': self.password,
+                'database': self.database,
+                'port': int(os.getenv('DB_PORT', 3306)),
+                'charset': 'utf8mb4',
+                'collation': 'utf8mb4_unicode_ci',
+                'autocommit': True,
+                'connect_timeout': 10,
+                'use_unicode': True
+            }
+            
+            # Configurar SSL para PlanetScale/Vercel
+            if os.getenv('DB_SSL_MODE') == 'REQUIRED':
+                config.update({
+                    'ssl_disabled': False,
+                    'ssl_verify_cert': True,
+                    'ssl_verify_identity': True
+                })
+            
+            conn = mysql.connector.connect(**config)
             return conn
         except Error as e:
             print(f'Erro na conexão com o MySQL: {e}')
