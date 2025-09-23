@@ -378,9 +378,9 @@ def importar_vendas_background(user_id):
                     total_processed += 1
                     
                     if result['sucesso']:
-                import_status['vendas']['sucesso'] += 1
-            else:
-                import_status['vendas']['erros'] += 1
+                       import_status['vendas']['sucesso'] += 1
+                    else:
+                        import_status['vendas']['erros'] += 1
                         print(f"❌ Erro na venda {result['order_id']}: {result.get('erro', 'Erro desconhecido')}")
                     
                     # Atualiza progresso
