@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AplicaÃ§Ã£o MercadoLivre - VersÃ£o AWS
+Aplicação MercadoLivre - Versão AWS
 Configurada para rodar em EC2 com RDS
 """
 
@@ -14,9 +14,8 @@ import requests
 import json
 from datetime import datetime, timedelta
 import logging
-from sqlalchemy import text
 
-# Carregar variÃ¡veis de ambiente
+# Carregar variáveis de ambiente
 load_dotenv()
 
 # Configurar logging
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Inicializar Flask
 app = Flask(__name__)
 
-# ConfiguraÃ§Ãµes
+# Configurações
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'chave-padrao-mudar-em-producao')
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
@@ -34,13 +33,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Inicializar extensÃµes
+# Inicializar extensões
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# ConfiguraÃ§Ãµes do MercadoLivre
+# Configurações do MercadoLivre
 MELI_APP_ID = os.getenv('MELI_APP_ID')
 MELI_CLIENT_SECRET = os.getenv('MELI_CLIENT_SECRET')
 MELI_REDIRECT_URI = os.getenv('MELI_REDIRECT_URI')
@@ -100,7 +99,7 @@ class Sale(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Rotas da AplicaÃ§Ã£o
+# Rotas da Aplicação
 @app.route('/')
 def index():
     if current_user.is_authenticated:
@@ -118,7 +117,7 @@ def login():
             login_user(user)
             return redirect(url_for('dashboard'))
         else:
-            flash('UsuÃ¡rio ou senha invÃ¡lidos')
+            flash('Usuário ou senha inválidos')
     
     return render_template('login.html')
 
@@ -130,11 +129,11 @@ def register():
         password = request.form['password']
         
         if User.query.filter_by(username=username).first():
-            flash('UsuÃ¡rio jÃ¡ existe')
+            flash('Usuário já existe')
             return render_template('register.html')
         
         if User.query.filter_by(email=email).first():
-            flash('Email jÃ¡ cadastrado')
+            flash('Email já cadastrado')
             return render_template('register.html')
         
         user = User(username=username, email=email)
@@ -142,7 +141,7 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        flash('UsuÃ¡rio criado com sucesso!')
+        flash('Usuário criado com sucesso!')
         return redirect(url_for('login'))
     
     return render_template('register.html')
@@ -156,7 +155,7 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # EstatÃ­sticas bÃ¡sicas
+    # Estatísticas básicas
     total_products = Product.query.filter_by(user_id=current_user.id).count()
     total_sales = Sale.query.filter_by(user_id=current_user.id).count()
     
@@ -176,10 +175,10 @@ def callback():
     """Callback do MercadoLivre OAuth"""
     code = request.args.get('code')
     if not code:
-        flash('Erro na autorizaÃ§Ã£o do MercadoLivre')
+        flash('Erro na autorização do MercadoLivre')
         return redirect(url_for('dashboard'))
     
-    # Trocar cÃ³digo por token
+    # Trocar código por token
     token_data = {
         'grant_type': 'authorization_code',
         'client_id': MELI_APP_ID,
@@ -193,12 +192,12 @@ def callback():
         if response.status_code == 200:
             token_info = response.json()
             
-            # Salvar tokens no usuÃ¡rio
+            # Salvar tokens no usuário
             current_user.access_token = token_info['access_token']
             current_user.refresh_token = token_info.get('refresh_token')
             current_user.token_expires = datetime.utcnow() + timedelta(seconds=token_info['expires_in'])
             
-            # Obter informaÃ§Ãµes do usuÃ¡rio
+            # Obter informações do usuário
             user_info_response = requests.get(
                 f"https://api.mercadolibre.com/users/me?access_token={token_info['access_token']}"
             )
@@ -231,7 +230,7 @@ def vendas():
 @app.route('/analise')
 @login_required
 def analise():
-    # AnÃ¡lise de lucratividade
+    # Análise de lucratividade
     products = Product.query.filter_by(user_id=current_user.id).all()
     
     total_investment = sum(p.cost or 0 for p in products)
@@ -251,8 +250,8 @@ def analise():
 def health_check():
     """Endpoint de health check para AWS"""
     try:
-        # Testar conexÃ£o com banco
-        db.session.execute(text('SELECT 1'))
+        # Testar conexão com banco
+        db.session.execute('SELECT 1')
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
@@ -278,21 +277,21 @@ def init_db():
             raise
 
 if __name__ == '__main__':
-    # Verificar variÃ¡veis de ambiente
+    # Verificar variáveis de ambiente
     required_vars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
-        logger.error(f"VariÃ¡veis de ambiente faltando: {missing_vars}")
+        logger.error(f"Variáveis de ambiente faltando: {missing_vars}")
         exit(1)
     
     # Inicializar banco
     init_db()
     
-    # Executar aplicaÃ§Ã£o
+    # Executar aplicação
     host = os.getenv('HOST', '0.0.0.0')
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
     
-    logger.info(f"Iniciando aplicaÃ§Ã£o em {host}:{port}")
+    logger.info(f"Iniciando aplicação em {host}:{port}")
     app.run(host=host, port=port, debug=debug)

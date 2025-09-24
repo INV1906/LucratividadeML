@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+
+{% block title %}Detalhes da Venda - {{ pack_id }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="fw-bold text-dark mb-1">
+                        <i class="fas fa-shopping-cart text-primary me-2"></i>Detalhes da Venda
+                    </h2>
+                    <p class="text-muted mb-0">Pack ID: <code>{{ pack_id }}</code></p>
+                </div>
+                <div>
+                    <a href="{{ url_for('vendas') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Voltar às Vendas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if detalhes %}
+    {% set pack = detalhes.pack %}
+    {% set itens = detalhes.itens %}
+    {% set fretes = detalhes.fretes %}
+    {% set pagamentos = detalhes.pagamentos %}
+    
+    <!-- Resumo da Venda -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="card-body text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4 class="fw-bold mb-2">
+                                <i class="fas fa-boxes me-2"></i>
+                                {% if pack.total_vendas > 1 or pack.total_mlbs > 1 %}
+                                    Pack de {{ pack.total_vendas }} vendas
+                                {% else %}
+                                    Venda Única
+                                {% endif %}
+                            </h4>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Comprador:</strong> {{ pack.comprador_nome or 'N/A' }}</p>
+                                    <p class="mb-1"><strong>Data:</strong> {{ pack.data_aprovacao.strftime('%d/%m/%Y às %H:%M') if pack.data_aprovacao else 'N/A' }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="mb-1"><strong>Status:</strong> 
+                                        <span class="badge bg-light text-dark">{{ pack.status or 'N/A' }}</span>
+                                    </p>
+                                    <p class="mb-1"><strong>Total de Produtos:</strong> {{ pack.total_mlbs or 0 }} MLBs</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h3 class="fw-bold mb-0">{{ "R$ {:.2f}".format(pack.valor_total or 0).replace('.', ',') }}</h3>
+                            <p class="mb-0 opacity-75">Valor Total</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações Detalhadas -->
+    <div class="row">
+        <!-- Informações da Venda -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>Informações da Venda
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>ID da Venda:</strong><br>
+                            <code>{{ pack.pack_id_original or 'N/A' }}</code>
+                        </div>
+                        <div class="col-6">
+                            <strong>Data de Criação:</strong><br>
+                            {{ pack.data_criacao.strftime('%d/%m/%Y às %H:%M') if pack.data_criacao else 'N/A' }}
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Valor Total:</strong><br>
+                            <span class="h5 text-success">{{ "R$ {:.2f}".format(pack.valor_total or 0).replace('.', ',') }}</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Taxa MercadoLivre:</strong><br>
+                            <span class="text-warning">{{ "R$ {:.2f}".format(pack.taxa_ml or 0).replace('.', ',') }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Frete Total:</strong><br>
+                            {% if pack.frete_total and pack.frete_total > 0 %}
+                                <span class="text-info">{{ "R$ {:.2f}".format(pack.frete_total).replace('.', ',') }}</span>
+                            {% else %}
+                                <span class="text-success">Grátis</span>
+                            {% endif %}
+                        </div>
+                        <div class="col-6">
+                            <strong>Total de Produtos:</strong><br>
+                            <span class="badge bg-primary">{{ pack.total_produtos or 0 }} itens</span>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Informações do Comprador -->
+        <div class="col-lg-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-user me-2"></i>Informações do Comprador
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <strong>Nome:</strong><br>
+                            <span class="h6">{{ pack.comprador_nome or 'N/A' }}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <strong>Total de Compras:</strong><br>
+                            <span class="badge bg-success fs-6">{{ pack.total_compras_comprador or 0 }} compras</span>
+                        </div>
+                        <div class="col-6">
+                            <strong>Vendas no Pack:</strong><br>
+                            <span class="badge bg-info">{{ pack.total_vendas or 0 }} vendas</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Produtos da Venda -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-box me-2"></i>Produtos da Venda
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th class="border-0">Produto</th>
+                                    <th class="border-0">MLB</th>
+                                    <th class="border-0 text-center">Quantidade</th>
+                                    <th class="border-0 text-end">Preço Unitário</th>
+                                    <th class="border-0 text-end">Total</th>
+                                    <th class="border-0 text-center">Venda ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in itens %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong class="text-dark">{{ item.item_titulo or 'N/A' }}</strong>
+                                            {% if item.variacao_nome %}
+                                                <br><small class="text-muted">Variação: {{ item.variacao_nome }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <code class="bg-light px-2 py-1 rounded">{{ item.item_mlb or 'N/A' }}</code>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-primary">{{ item.quantidade or 0 }}</span>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong>{{ "R$ {:.2f}".format(item.preco_unitario or 0).replace('.', ',') }}</strong>
+                                    </td>
+                                    <td class="text-end">
+                                        <strong class="text-success">{{ "R$ {:.2f}".format(item.preco_total or 0).replace('.', ',') }}</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        <code class="small">{{ item.venda_id or 'N/A' }}</code>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações de Frete -->
+    {% if fretes %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-truck me-2"></i>Informações de Frete
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Venda ID</th>
+                                    <th>Valor do Frete</th>
+                                    <th>Método de Envio</th>
+                                    <th>Prazo de Entrega</th>
+                                    <th>Status do Envio</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for frete in fretes %}
+                                <tr>
+                                    <td><code>{{ frete.venda_id or 'N/A' }}</code></td>
+                                    <td>
+                                        <strong class="text-info">
+                                            {{ "R$ {:.2f}".format(frete.valor_frete or 0).replace('.', ',') }}
+                                        </strong>
+                                    </td>
+                                    <td>{{ frete.metodo_envio or 'N/A' }}</td>
+                                    <td>{{ frete.prazo_entrega or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ frete.status_envio or 'N/A' }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informações de Pagamento -->
+    {% if pagamentos %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>Informações de Pagamento
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Venda ID</th>
+                                    <th>Valor Pago</th>
+                                    <th>Método de Pagamento</th>
+                                    <th>Status do Pagamento</th>
+                                    <th>Data do Pagamento</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pagamento in pagamentos %}
+                                <tr>
+                                    <td><code>{{ pagamento.venda_id or 'N/A' }}</code></td>
+                                    <td>
+                                        <strong class="text-success">
+                                            {{ "R$ {:.2f}".format(pagamento.valor_pago or 0).replace('.', ',') }}
+                                        </strong>
+                                    </td>
+                                    <td>{{ pagamento.metodo_pagamento or 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-success">{{ pagamento.status_pagamento or 'N/A' }}</span>
+                                    </td>
+                                    <td>{{ pagamento.data_pagamento.strftime('%d/%m/%Y às %H:%M') if pagamento.data_pagamento else 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <h6 class="fw-bold text-dark mb-3">Ações Disponíveis</h6>
+                    <div class="d-flex gap-3 justify-content-center">
+                        <button class="btn btn-success btn-lg" onclick="calcularLucratividadePack('{{ pack_id }}')">
+                            <i class="fas fa-calculator me-2"></i>Calcular Lucratividade
+                        </button>
+                        <a href="{{ url_for('vendas') }}" class="btn btn-outline-primary btn-lg">
+                            <i class="fas fa-arrow-left me-2"></i>Voltar às Vendas
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Venda não encontrada -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3 text-dark">Venda não encontrada</h4>
+                    <p class="text-muted">A venda solicitada não foi encontrada ou você não tem permissão para visualizá-la.</p>
+                    <a href="{{ url_for('vendas') }}" class="btn btn-primary">
+                        <i class="fas fa-arrow-left me-1"></i>Voltar às Vendas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Lucratividade -->
+<div class="modal fade" id="modalLucratividade" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-calculator me-2"></i>Lucratividade do Pack
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalLucratividadeBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Calculando...</span>
+                    </div>
+                    <p class="mt-3 text-muted">Calculando lucratividade...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function calcularLucratividadePack(packId) {
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalLucratividade'));
+    modal.show();
+    
+    // Mostrar loading
+    document.getElementById('modalLucratividadeBody').innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Calculando...</span>
+            </div>
+            <p class="mt-3 text-muted">Calculando lucratividade do pack...</p>
+        </div>
+    `;
+    
+    // Buscar dados de lucratividade
+    fetch(`/api/lucratividade-pack/${packId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                mostrarLucratividadePack(data.lucratividade);
+            } else {
+                mostrarErroLucratividade(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao calcular lucratividade:', error);
+            mostrarErroLucratividade('Erro ao calcular lucratividade');
+        });
+}
+
+function mostrarLucratividadePack(lucratividade) {
+    const modalBody = document.getElementById('modalLucratividadeBody');
+    
+    modalBody.innerHTML = `
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-success mb-3">
+                    <i class="fas fa-chart-line me-2"></i>Resumo da Lucratividade
+                </h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Receita Total</h6>
+                                <h4 class="text-success">R$ ${lucratividade.receita_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo Total</h6>
+                                <h4 class="text-danger">R$ ${lucratividade.custo_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Lucro Total</h6>
+                                <h4 class="${lucratividade.lucro_total >= 0 ? 'text-success' : 'text-danger'}">R$ ${lucratividade.lucro_total.toFixed(2).replace('.', ',')}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Margem</h6>
+                                <h4 class="${lucratividade.margem_total >= 0 ? 'text-success' : 'text-danger'}">${lucratividade.margem_total.toFixed(1)}%</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-box me-2"></i>Detalhamento por Produto
+                </h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Produto</th>
+                                <th>MLB</th>
+                                <th class="text-center">Qtd</th>
+                                <th class="text-end">Receita</th>
+                                <th class="text-end">Custo Total</th>
+                                <th class="text-end">Lucro</th>
+                                <th class="text-center">Margem</th>
+                                <th class="text-center">Detalhes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${lucratividade.itens.map(item => `
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>${item.item_titulo}</strong>
+                                            <br><small class="text-muted">${item.venda_id}</small>
+                                        </div>
+                                    </td>
+                                    <td><code>${item.item_mlb}</code></td>
+                                    <td class="text-center"><span class="badge bg-primary">${item.quantidade}</span></td>
+                                    <td class="text-end"><strong class="text-success">R$ ${item.preco_total.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-end"><strong class="text-danger">R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-end"><strong class="${item.lucro_final >= 0 ? 'text-success' : 'text-danger'}">R$ ${item.lucro_final.toFixed(2).replace('.', ',')}</strong></td>
+                                    <td class="text-center">
+                                        <span class="badge ${item.margem_final >= 0 ? 'bg-success' : 'bg-danger'}">${item.margem_final.toFixed(1)}%</span>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-info" onclick="mostrarDetalhesCustos('${item.item_mlb}', ${JSON.stringify(item).replace(/"/g, '&quot;')})" title="Ver Detalhes dos Custos">
+                                            <i class="fas fa-info-circle"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h6 class="fw-bold text-warning mb-3">
+                    <i class="fas fa-calculator me-2"></i>Composição dos Custos Totais
+                </h6>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo dos Produtos</h6>
+                                <h5 class="text-primary">R$ ${lucratividade.custo_produtos.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Base + Imposto + Embalagem + Extras</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Taxa MercadoLivre</h6>
+                                <h5 class="text-warning">R$ ${lucratividade.taxa_ml.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Comissão da plataforma</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Frete Total</h6>
+                                <h5 class="text-info">R$ ${lucratividade.frete_total.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Distribuído entre produtos</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Custo Total</h6>
+                                <h5 class="text-danger">R$ ${lucratividade.custo_total.toFixed(2).replace('.', ',')}</h5>
+                                <small class="text-muted">Soma de todos os custos</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-12 text-center">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    `;
+}
+
+function mostrarErroLucratividade(mensagem) {
+    document.getElementById('modalLucratividadeBody').innerHTML = `
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle text-warning" style="font-size: 3rem;"></i>
+            <h5 class="mt-3">Erro no Cálculo</h5>
+            <p class="text-muted">${mensagem}</p>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+        </div>
+    `;
+}
+
+function mostrarDetalhesCustos(mlb, item) {
+    // Criar modal para detalhes dos custos
+    const modalHtml = `
+        <div class="modal fade" id="modalDetalhesCustos" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header bg-info text-white">
+                        <h5 class="modal-title">
+                            <i class="fas fa-info-circle me-2"></i>Detalhes dos Custos - ${mlb}
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-dark">${item.item_titulo}</h6>
+                                <p class="text-muted mb-0">Quantidade: ${item.quantidade} | Venda ID: ${item.venda_id}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-success mb-3">Receita</h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Preço Unitário:</span>
+                                            <strong class="text-success">R$ ${item.preco_unitario.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Quantidade:</span>
+                                            <strong>${item.quantidade}</strong>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between">
+                                            <span><strong>Total:</strong></span>
+                                            <strong class="text-success h5">R$ ${item.preco_total.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6 class="fw-bold text-danger mb-3">Custos</h6>
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Custo Base:</span>
+                                            <strong>R$ ${item.custo_base.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Imposto:</span>
+                                            <strong>R$ ${item.imposto.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Embalagem:</span>
+                                            <strong>R$ ${item.embalagem.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Extras:</span>
+                                            <strong>R$ ${item.extra.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Frete Proporcional:</span>
+                                            <strong>R$ ${item.frete_proporcional.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                        <hr>
+                                        <div class="d-flex justify-content-between">
+                                            <span><strong>Total:</strong></span>
+                                            <strong class="text-danger h5">R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <h6 class="fw-bold text-primary mb-3">Resumo Financeiro</h6>
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body">
+                                        <div class="row text-center">
+                                            <div class="col-md-4">
+                                                <h6>Receita</h6>
+                                                <h4>R$ ${item.preco_total.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6>Custo Total</h6>
+                                                <h4>R$ ${item.custo_total_com_frete.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <h6>Lucro</h6>
+                                                <h4 class="${item.lucro_final >= 0 ? 'text-success' : 'text-warning'}">R$ ${item.lucro_final.toFixed(2).replace('.', ',')}</h4>
+                                            </div>
+                                        </div>
+                                        <div class="row text-center mt-3">
+                                            <div class="col-12">
+                                                <h6>Margem de Lucro</h6>
+                                                <h3 class="${item.margem_final >= 0 ? 'text-success' : 'text-warning'}">${item.margem_final.toFixed(1)}%</h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remover modal anterior se existir
+    const existingModal = document.getElementById('modalDetalhesCustos');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Adicionar novo modal ao body
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Mostrar modal
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalhesCustos'));
+    modal.show();
+}
+</script>
+{% endblock %}

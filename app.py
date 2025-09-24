@@ -19,15 +19,6 @@ from functools import wraps
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'sua_chave_secreta_aqui')
 
-# Configurações específicas para Vercel
-if os.getenv('VERCEL'):
-    # Configurações para ambiente serverless
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
-    
-    # Desabilitar debug em produção
-    app.debug = False
-
 # Configurar headers de segurança para resolver Mixed Content
 @app.after_request
 def after_request(response):
@@ -378,7 +369,7 @@ def importar_vendas_background(user_id):
                     total_processed += 1
                     
                     if result['sucesso']:
-                       import_status['vendas']['sucesso'] += 1
+                        import_status['vendas']['sucesso'] += 1
                     else:
                         import_status['vendas']['erros'] += 1
                         print(f"❌ Erro na venda {result['order_id']}: {result.get('erro', 'Erro desconhecido')}")
@@ -2290,7 +2281,7 @@ def sync():
     """Página de sincronização incremental."""
     if 'user_id' not in session:
         flash('Você precisa fazer login primeiro', 'warning')
-    return redirect(url_for('index'))
+        return redirect(url_for('index'))
     
     return render_template('sync.html')
 
@@ -2810,7 +2801,7 @@ def gerar_pdf_relatorio(analise_data):
 if __name__ == '__main__':
     # Cria tabelas se não existirem
     db.criar_tabelas()
-    
+
     # Inicia monitor de tokens automaticamente
     try:
         start_token_monitoring()
@@ -2836,15 +2827,11 @@ if __name__ == '__main__':
 
     # Obtém porta do ambiente ou usa 3001 como padrão
     port = int(os.getenv('PORT', 3001))
-    
+
     # Configurar para HTTPS quando usando ngrok
     ssl_context = None
     if os.getenv('NGROK_HTTPS') == 'true':
         ssl_context = 'adhoc'  # Gera certificado auto-assinado
 
-    # Handler para Vercel
-    def handler(request):
-        return app(request.environ, start_response)
-    
     # Inicia aplicação
     app.run(debug=True, host='0.0.0.0', port=port, ssl_context=ssl_context)
