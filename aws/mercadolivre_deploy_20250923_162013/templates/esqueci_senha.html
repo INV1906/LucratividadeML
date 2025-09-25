@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recuperar Senha - Lucratividade ML</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Background Animation */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 60%, rgba(120, 219, 255, 0.2) 0%, transparent 50%);
+            animation: backgroundShift 20s ease-in-out infinite;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(-20px) translateY(-10px); }
+            50% { transform: translateX(20px) translateY(10px); }
+            75% { transform: translateX(-10px) translateY(20px); }
+        }
+
+        /* Floating Elements */
+        .floating-element {
+            position: absolute;
+            border-radius: 50%;
+            background: linear-gradient(45deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            backdrop-filter: blur(10px);
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .floating-element:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            top: 20%;
+            left: 10%;
+            animation-delay: 0s;
+        }
+
+        .floating-element:nth-child(2) {
+            width: 120px;
+            height: 120px;
+            top: 60%;
+            right: 15%;
+            animation-delay: 2s;
+        }
+
+        .floating-element:nth-child(3) {
+            width: 60px;
+            height: 60px;
+            bottom: 20%;
+            left: 20%;
+            animation-delay: 4s;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+
+        /* Main Container */
+        .main-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Recovery Card */
+        .recovery-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .recovery-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+        }
+
+        /* Header */
+        .recovery-header {
+            padding: 3rem 2.5rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .logo::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shine 3s infinite;
+        }
+
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .logo i {
+            font-size: 2.5rem;
+            color: white;
+            z-index: 1;
+        }
+
+        .recovery-title {
+            color: white;
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .recovery-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1.1rem;
+            font-weight: 400;
+            margin-bottom: 0;
+        }
+
+        /* Body */
+        .recovery-body {
+            padding: 0 2.5rem 2.5rem;
+        }
+
+        /* Step Indicator */
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            gap: 1rem;
+        }
+
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .step-dot.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+
+        .step-dot.completed {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+
+        .step-dot.completed::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 8px;
+            font-weight: bold;
+        }
+
+        /* Steps */
+        .step {
+            display: none;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        .step-title {
+            color: white;
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .step-description {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Form Controls */
+        .form-control {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: white;
+            padding: 1rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(102, 126, 234, 0.5);
+            box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+            color: white;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .form-label {
+            color: white;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn-recovery {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 16px;
+            padding: 1rem 2rem;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-recovery::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-recovery:hover::before {
+            left: 100%;
+        }
+
+        .btn-recovery:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+
+        .btn-recovery:disabled {
+            opacity: 0.7;
+            transform: none;
+            cursor: not-allowed;
+        }
+
+        .btn-back {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Code Input */
+        .code-input {
+            font-size: 1.5rem;
+            text-align: center;
+            letter-spacing: 0.5rem;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Loading States */
+        .loading {
+            display: none;
+        }
+
+        .loading.show {
+            display: inline-block;
+        }
+
+        .normal {
+            display: inline-block;
+        }
+
+        .loading.show + .normal {
+            display: none;
+        }
+
+        /* Alerts */
+        .alert {
+            border: none;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+
+        /* Security Badge */
+        .security-badge {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 12px;
+            padding: 0.75rem 1rem;
+            margin-top: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            color: #22c55e;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .security-badge i {
+            font-size: 1rem;
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            color: white;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1rem;
+            min-width: 320px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-left: 4px solid #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .toast.error {
+            border-left: 4px solid #f87171;
+            background: rgba(248, 113, 113, 0.1);
+        }
+
+        .toast.warning {
+            border-left: 4px solid #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        .toast.info {
+            border-left: 4px solid #60a5fa;
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        .toast-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .toast-icon {
+            font-size: 1.2rem;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .toast-message {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 1.1rem;
+            cursor: pointer;
+            margin-left: auto;
+            padding: 4px;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .toast-close:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            transform: scale(1.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 1rem;
+            }
+
+            .recovery-header {
+                padding: 2rem 1.5rem 1.5rem;
+            }
+
+            .recovery-body {
+                padding: 0 1.5rem 1.5rem;
+            }
+
+            .recovery-title {
+                font-size: 1.8rem;
+            }
+
+            .step-indicator {
+                gap: 0.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .recovery-header {
+                padding: 1.5rem 1rem 1rem;
+            }
+
+            .recovery-body {
+                padding: 0 1rem 1rem;
+            }
+
+            .logo {
+                width: 60px;
+                height: 60px;
+            }
+
+            .logo i {
+                font-size: 2rem;
+            }
+
+            .recovery-title {
+                font-size: 1.6rem;
+            }
+
+            .code-input {
+                font-size: 1.2rem;
+                letter-spacing: 0.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Animation -->
+    <div class="bg-animation"></div>
+    
+    <!-- Floating Elements -->
+    <div class="floating-element"></div>
+    <div class="floating-element"></div>
+    <div class="floating-element"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="main-container">
+        <div class="recovery-card">
+            <!-- Header -->
+            <div class="recovery-header">
+                <div class="logo">
+                    <i class="fas fa-key"></i>
+                </div>
+                <h1 class="recovery-title">Recuperar Senha</h1>
+                <p class="recovery-subtitle">Redefina sua senha de forma segura</p>
+            </div>
+
+            <!-- Body -->
+            <div class="recovery-body">
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step-dot active" id="step1Dot"></div>
+                    <div class="step-dot" id="step2Dot"></div>
+                    <div class="step-dot" id="step3Dot"></div>
+                </div>
+
+                <!-- Alert Container -->
+                <div id="alertContainer"></div>
+
+                <!-- Step 1: Email -->
+                <div id="step1" class="step active">
+                    <h5 class="step-title">Digite seu email</h5>
+                    <p class="step-description">Enviaremos um código de verificação para seu email</p>
+                    
+                    <form id="emailForm">
+                        <div class="mb-4">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" 
+                                   placeholder="seu@email.com" required>
+                        </div>
+                        
+                        <button type="submit" class="btn-recovery mb-3">
+                            <span class="loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Enviando...
+                            </span>
+                            <span class="normal">
+                                <i class="fas fa-paper-plane"></i>
+                                Enviar Código
+                            </span>
+                        </button>
+                    </form>
+                    
+                    <div class="text-center">
+                        <a href="/" class="btn-back">
+                            <i class="fas fa-arrow-left"></i>
+                            Voltar ao Login
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Step 2: Code -->
+                <div id="step2" class="step">
+                    <h5 class="step-title">Digite o código</h5>
+                    <p class="step-description">Enviamos um código de 6 dígitos para <strong id="emailDisplay" class="text-white"></strong></p>
+                    
+                    <form id="codeForm">
+                        <div class="mb-4">
+                            <label for="code" class="form-label">Código de Verificação</label>
+                            <input type="text" class="form-control code-input" id="code" name="code" 
+                                   maxlength="6" placeholder="000000" required>
+                        </div>
+                        
+                        <button type="submit" class="btn-recovery mb-3">
+                            <span class="loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Verificando...
+                            </span>
+                            <span class="normal">
+                                <i class="fas fa-check"></i>
+                                Verificar Código
+                            </span>
+                        </button>
+                    </form>
+                    
+                    <div class="text-center">
+                        <button type="button" class="btn-back" onclick="backToStep1()">
+                            <i class="fas fa-arrow-left"></i>
+                            Voltar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: New Password -->
+                <div id="step3" class="step">
+                    <h5 class="step-title">Nova Senha</h5>
+                    <p class="step-description">Digite sua nova senha</p>
+                    
+                    <form id="passwordForm">
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">Nova Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="newPassword" name="newPassword" 
+                                       placeholder="Mínimo 6 caracteres" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('newPassword')"
+                                        style="border-color: rgba(255, 255, 255, 0.2); color: white;">
+                                    <i class="fas fa-eye" id="newPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="confirmPassword" class="form-label">Confirmar Nova Senha</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" 
+                                       placeholder="Digite a senha novamente" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePassword('confirmPassword')"
+                                        style="border-color: rgba(255, 255, 255, 0.2); color: white;">
+                                    <i class="fas fa-eye" id="confirmPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn-recovery mb-3">
+                            <span class="loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Redefinindo...
+                            </span>
+                            <span class="normal">
+                                <i class="fas fa-save"></i>
+                                Redefinir Senha
+                            </span>
+                        </button>
+                    </form>
+                    
+                    <div class="text-center">
+                        <button type="button" class="btn-back" onclick="backToStep2()">
+                            <i class="fas fa-arrow-left"></i>
+                            Voltar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Security Badge -->
+                <div class="security-badge">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Seus dados são 100% seguros e criptografados</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        let currentStep = 1;
+        let userEmail = '';
+        let userId = '';
+        let verificationCode = '';
+        
+        function showStep(step) {
+            // Esconder todos os passos
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Mostrar passo atual
+            document.getElementById('step' + step).classList.add('active');
+            
+            // Atualizar indicadores
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById('step' + i + 'Dot');
+                if (i < step) {
+                    dot.classList.add('completed');
+                    dot.classList.remove('active');
+                } else if (i === step) {
+                    dot.classList.add('active');
+                    dot.classList.remove('completed');
+                } else {
+                    dot.classList.remove('active', 'completed');
+                }
+            }
+            
+            currentStep = step;
+        }
+        
+        // Função para mostrar toast
+        function showToast(title, message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            
+            const icons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            const toast = document.createElement('div');
+            toast.id = toastId;
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `
+                <div class="toast-header">
+                    <i class="toast-icon ${icons[type]}"></i>
+                    <span class="toast-title">${title}</span>
+                    <button class="toast-close" onclick="closeToast('${toastId}')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="toast-message">${message}</div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Mostrar toast com animação
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            // Auto-remover após duração
+            setTimeout(() => {
+                closeToast(toastId);
+            }, duration);
+        }
+        
+        // Função para fechar toast
+        function closeToast(toastId) {
+            const toast = document.getElementById(toastId);
+            if (toast) {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }
+        }
+
+        function showAlert(message, type = 'danger') {
+            const typeMap = {
+                'danger': 'error',
+                'success': 'success',
+                'warning': 'warning',
+                'info': 'info'
+            };
+            
+            const titleMap = {
+                'error': 'Erro',
+                'success': 'Sucesso',
+                'warning': 'Atenção',
+                'info': 'Informação'
+            };
+            
+            showToast(titleMap[typeMap[type]] || 'Notificação', message, typeMap[type] || 'info');
+        }
+        
+        function showLoading(button, show = true) {
+            const loading = button.querySelector('.loading');
+            const normal = button.querySelector('.normal');
+            
+            if (show) {
+                loading.classList.add('show');
+                normal.style.display = 'none';
+                button.disabled = true;
+            } else {
+                loading.classList.remove('show');
+                normal.style.display = 'inline-block';
+                button.disabled = false;
+            }
+        }
+        
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(inputId + 'Icon');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+        
+        function backToStep1() {
+            showStep(1);
+            document.getElementById('emailForm').reset();
+        }
+        
+        function backToStep2() {
+            showStep(2);
+        }
+        
+        // Formatar código de verificação
+        document.getElementById('code').addEventListener('input', function(e) {
+            this.value = this.value.replace(/\D/g, '').substring(0, 6);
+        });
+        
+        // Passo 1: Enviar email
+        document.getElementById('emailForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const email = formData.get('email');
+            
+            const button = this.querySelector('button[type="submit"]');
+            showLoading(button, true);
+            
+            try {
+                const response = await fetch('/esqueci-senha', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: email })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    userEmail = email;
+                    showAlert('Código enviado com sucesso! Verifique seu email.', 'success');
+                    document.getElementById('emailDisplay').textContent = email;
+                    showStep(2);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('Erro ao enviar código. Tente novamente.', 'danger');
+            } finally {
+                showLoading(button, false);
+            }
+        });
+        
+        // Passo 2: Verificar código
+        document.getElementById('codeForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const code = formData.get('code');
+            
+            const button = this.querySelector('button[type="submit"]');
+            showLoading(button, true);
+            
+            try {
+                const response = await fetch('/verificar-codigo', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: userEmail, 
+                        codigo: code 
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    userId = result.user_id;
+                    verificationCode = code;
+                    showAlert('Código verificado com sucesso!', 'success');
+                    showStep(3);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('Erro ao verificar código. Tente novamente.', 'danger');
+            } finally {
+                showLoading(button, false);
+            }
+        });
+        
+        // Passo 3: Redefinir senha
+        document.getElementById('passwordForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const newPassword = formData.get('newPassword');
+            const confirmPassword = formData.get('confirmPassword');
+            
+            if (newPassword !== confirmPassword) {
+                showAlert('As senhas não coincidem.', 'danger');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showAlert('A senha deve ter pelo menos 6 caracteres.', 'danger');
+                return;
+            }
+            
+            const button = this.querySelector('button[type="submit"]');
+            showLoading(button, true);
+            
+            try {
+                const response = await fetch('/redefinir-senha', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        user_id: userId,
+                        codigo: verificationCode,
+                        nova_senha: newPassword,
+                        confirmar_senha: confirmPassword
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Senha redefinida com sucesso! Redirecionando...', 'success');
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    showAlert(result.message, 'danger');
+                }
+            } catch (error) {
+                showAlert('Erro ao redefinir senha. Tente novamente.', 'danger');
+            } finally {
+                showLoading(button, false);
+            }
+        });
+    </script>
+</body>
+</html>
