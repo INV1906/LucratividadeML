@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Teste Ngrok{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Teste Ngrok</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-success">
+                        <h5>✅ Ngrok funcionando!</h5>
+                        <p>Se você está vendo esta página, o ngrok está configurado corretamente.</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Informações do teste:</h6>
+                        <ul>
+                            <li><strong>URL:</strong> {{ request.url }}</li>
+                            <li><strong>Host:</strong> {{ request.host }}</li>
+                            <li><strong>Timestamp:</strong> {{ moment().format('YYYY-MM-DD HH:mm:ss') }}</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Voltar ao Início
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

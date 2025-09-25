@@ -559,23 +559,8 @@ class SyncManager:
                 # Obter usuários ativos
                 usuarios_ativos = self._obter_usuarios_ativos()
                 
-                for user_id in usuarios_ativos:
-                    if not self.running:
-                        break
-                    
-                    try:
-                        # Verificar se precisa sincronizar vendas
-                        if self._precisa_sincronizar(user_id, 'vendas'):
-                            logger.info(f"🔄 Sincronizando vendas para user_id: {user_id}")
-                            self.sincronizar_vendas_incremental(user_id)
-                        
-                        # Verificar se precisa sincronizar produtos
-                        if self._precisa_sincronizar(user_id, 'produtos'):
-                            logger.info(f"🔄 Sincronizando produtos para user_id: {user_id}")
-                            self.sincronizar_produtos_incremental(user_id)
-                            
-                    except Exception as e:
-                        logger.error(f"❌ Erro na sincronização para user_id {user_id}: {e}")
+                # Processar usuários em paralelo
+                self._processar_usuarios_paralelo(usuarios_ativos)
                 
                 # Aguardar antes da próxima verificação
                 time.sleep(60)  # Verificar a cada minuto
@@ -585,6 +570,46 @@ class SyncManager:
                 time.sleep(60)
         
         logger.info("🛑 Loop de sincronização automática finalizado")
+    
+    def _processar_usuarios_paralelo(self, usuarios_ativos):
+        """Processa usuários em paralelo para sincronização"""
+        if not usuarios_ativos:
+            return
+        
+        # Criar threads para cada usuário
+        threads = []
+        for user_id in usuarios_ativos:
+            if not self.running:
+                break
+            
+            thread = threading.Thread(
+                target=self._sincronizar_usuario_individual,
+                args=(user_id,),
+                daemon=True
+            )
+            threads.append(thread)
+            thread.start()
+        
+        # Aguardar todas as threads terminarem (com timeout)
+        for thread in threads:
+            if thread.is_alive():
+                thread.join(timeout=300)  # 5 minutos timeout por usuário
+    
+    def _sincronizar_usuario_individual(self, user_id):
+        """Sincroniza um usuário individual em thread separada"""
+        try:
+            # Verificar se precisa sincronizar vendas
+            if self._precisa_sincronizar(user_id, 'vendas'):
+                logger.info(f"🔄 Sincronizando vendas para user_id: {user_id}")
+                self.sincronizar_vendas_incremental(user_id)
+            
+            # Verificar se precisa sincronizar produtos
+            if self._precisa_sincronizar(user_id, 'produtos'):
+                logger.info(f"🔄 Sincronizando produtos para user_id: {user_id}")
+                self.sincronizar_produtos_incremental(user_id)
+                
+        except Exception as e:
+            logger.error(f"❌ Erro na sincronização para user_id {user_id}: {e}")
     
     def _obter_usuarios_ativos(self) -> List[int]:
         """Obtém lista de usuários com sincronização ativa"""

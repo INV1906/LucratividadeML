@@ -135,6 +135,61 @@ class DatabaseManager:
                     )
                 """)
                 
+                # Tabela de usuários de autenticação
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS usuarios_auth(
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        email VARCHAR(100) NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        salt VARCHAR(32) NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        last_login TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_username (username),
+                        INDEX idx_email (email)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """)
+                
+                # Tabela de sessões ativas
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS sessoes_ativas(
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        session_token VARCHAR(255) UNIQUE NOT NULL,
+                        login_type ENUM('password', 'mercadolivre') NOT NULL,
+                        ip_address VARCHAR(45),
+                        user_agent TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        expires_at TIMESTAMP NOT NULL,
+                        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_session_token (session_token),
+                        INDEX idx_expires_at (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """)
+                
+                # Tabela de códigos de verificação
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS codigos_verificacao(
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        codigo VARCHAR(10) NOT NULL,
+                        tipo ENUM('password_reset', 'email_verification') NOT NULL,
+                        email VARCHAR(100) NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
+                        used_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_codigo (codigo),
+                        INDEX idx_email (email),
+                        INDEX idx_expires_at (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """)
+                
                 # Tabela de produtos (conforme dump original)
                 cursor.execute("""
                     CREATE TABLE IF NOT EXISTS produtos(

@@ -346,10 +346,8 @@
                     
                     <!-- Título (não editável) -->
                     <div class="mb-3">
-                        <label class="form-label">Título do Produto</label>
-                        <div class="form-control-plaintext bg-light p-2 rounded" id="editTitleDisplay">
-                            <!-- Será preenchido via JavaScript -->
-                        </div>
+                        <label class="form-label">Título</label>
+                        <input type="text" class="form-control" id="editTitle" readonly>
                     </div>
                     
                     <div class="row">
@@ -965,90 +963,212 @@ function carregarCategoriasFallback() {
     select.value = currentValue;
 }
 
-// Função para editar produto
+// Função para editar produto (mesma lógica da página de detalhes)
 function editarProduto(mlb) {
+    console.log('🔧 Editando produto:', mlb);
+    
     // Buscar dados do produto na tabela
     const table = document.getElementById('produtosTable');
+    if (!table) {
+        console.error('❌ Tabela produtosTable não encontrada');
+        alert('Erro: Tabela de produtos não encontrada');
+        return;
+    }
+    
     const rows = table.getElementsByTagName('tr');
+    console.log('📊 Total de linhas na tabela:', rows.length);
+    
+    let produtoEncontrado = false;
     
     for (let i = 1; i < rows.length; i++) {
         const cells = rows[i].getElementsByTagName('td');
-        const mlbCell = cells[1].querySelector('code');
+        console.log(`🔍 Verificando linha ${i}, células:`, cells.length);
         
-        if (mlbCell && mlbCell.textContent === mlb) {
-            // Extrair dados da linha
-            const title = cells[1].querySelector('strong').textContent;
+        if (cells.length < 6) {
+            console.warn(`⚠️ Linha ${i} não tem colunas suficientes:`, cells.length);
+            continue;
+        }
+        
+        // Procurar MLB em todas as células da linha
+        let mlbCell = null;
+        let mlbFound = false;
+        
+        for (let j = 0; j < cells.length; j++) {
+            const codeElement = cells[j].querySelector('code');
+            if (codeElement && codeElement.textContent === mlb) {
+                mlbCell = codeElement;
+                mlbFound = true;
+                console.log(`✅ MLB encontrado na célula ${j}: "${codeElement.textContent}"`);
+                break;
+            }
+        }
+        
+        if (!mlbFound) {
+            console.warn(`⚠️ Linha ${i} não tem MLB "${mlb}"`);
+            // Log de debug para ver todas as células
+            for (let j = 0; j < Math.min(cells.length, 5); j++) {
+                console.log(`🔍 Célula ${j}:`, cells[j].textContent.substring(0, 100) + '...');
+            }
+            continue;
+        }
+        
+        if (mlbCell.textContent === mlb) {
+            console.log('✅ Produto encontrado na linha:', i);
+            produtoEncontrado = true;
             
-            // Extrair preço corretamente
-            let priceText = cells[2].textContent;
-            const priceMatch = priceText.match(/R\$\s*([\d,]+\.?\d*)/);
-            const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
+            // Encontrar a célula que contém o MLB para usar como referência
+            const mlbCellIndex = Array.from(cells).findIndex(cell => 
+                cell.querySelector('code') && cell.querySelector('code').textContent === mlb
+            );
+            console.log('📍 MLB encontrado na célula:', mlbCellIndex);
             
-            const quantity = parseInt(cells[3].textContent);
+            // Extrair dados da linha - buscar em todas as células
+            let title = 'Produto sem título';
+            let price = 0;
+            let quantity = 0;
+            let status = 'active';
             
-            // Extrair status corretamente (pode estar em badge)
-            const statusCell = cells[5];
-            let status = 'active'; // padrão
-            if (statusCell.querySelector('.badge')) {
-                const statusText = statusCell.querySelector('.badge').textContent.toLowerCase();
-                if (statusText.includes('ativo')) {
-                    status = 'active';
-                } else if (statusText.includes('pausado')) {
-                    status = 'paused';
-                } else {
-                    status = statusText;
+            // Procurar título (geralmente em strong)
+            for (let j = 0; j < cells.length; j++) {
+                const titleElement = cells[j].querySelector('strong');
+                if (titleElement && titleElement.textContent.trim()) {
+                    title = titleElement.textContent.trim();
+                    console.log('📋 Título extraído da célula', j, ':', title);
+                    break;
                 }
-            } else {
-                status = statusCell.textContent.toLowerCase();
             }
             
-            // Preencher formulário
-            document.getElementById('editMlb').value = mlb;
-            document.getElementById('editTitleDisplay').textContent = title;
-            document.getElementById('editPrice').value = price;
-            document.getElementById('editQuantity').value = quantity;
-            document.getElementById('editStatus').value = status;
+            // Procurar preço (formato R$ X,XX)
+            for (let j = 0; j < cells.length; j++) {
+                const priceText = cells[j].textContent;
+                const priceMatch = priceText.match(/R\$\s*([\d,]+\.?\d*)/);
+                if (priceMatch) {
+                    price = parseFloat(priceMatch[1].replace(',', '.'));
+                    console.log('💰 Preço extraído da célula', j, ':', price);
+                    break;
+                }
+            }
             
-            // Abrir modal
-            const modal = new bootstrap.Modal(document.getElementById('editarProdutoModal'));
-            modal.show();
+            // Procurar quantidade (número inteiro)
+            for (let j = 0; j < cells.length; j++) {
+                const quantityText = cells[j].textContent.trim();
+                const quantityMatch = quantityText.match(/^\d+$/);
+                if (quantityMatch) {
+                    quantity = parseInt(quantityText);
+                    console.log('📦 Quantidade extraída da célula', j, ':', quantity);
+                    break;
+                }
+            }
+            
+            // Procurar status (badge ou texto)
+            for (let j = 0; j < cells.length; j++) {
+                const statusCell = cells[j];
+                if (statusCell.querySelector('.badge')) {
+                    const statusText = statusCell.querySelector('.badge').textContent.toLowerCase();
+                    if (statusText.includes('ativo')) {
+                        status = 'active';
+                    } else if (statusText.includes('pausado')) {
+                        status = 'paused';
+                    }
+                    console.log('📊 Status extraído da célula', j, ':', status);
+                    break;
+                }
+            }
+            
+            // Verificar se os elementos do modal existem
+            const editTitle = document.getElementById('editTitle');
+            const editPrice = document.getElementById('editPrice');
+            const editQuantity = document.getElementById('editQuantity');
+            const editStatus = document.getElementById('editStatus');
+            const modalElement = document.getElementById('editarProdutoModal');
+            
+            console.log('🔍 Elementos do modal:', {
+                editTitle: !!editTitle,
+                editPrice: !!editPrice,
+                editQuantity: !!editQuantity,
+                editStatus: !!editStatus,
+                modalElement: !!modalElement
+            });
+            
+            if (!editTitle || !editPrice || !editQuantity || !editStatus || !modalElement) {
+                console.error('❌ Elementos do modal não encontrados');
+                alert('Erro: Elementos do modal de edição não encontrados');
+                return;
+            }
+            
+            // Preencher modal (mesma estrutura da página de detalhes)
+            editTitle.value = title;
+            editPrice.value = price;
+            editQuantity.value = quantity;
+            editStatus.value = status;
+            
+            console.log('✅ Modal preenchido com dados:', { title, price, quantity, status });
+            
+            // Armazenar MLB para uso na função salvar
+            window.produtoEditando = { mlb: mlb };
+            
+            // Mostrar modal
+            try {
+                const modal = new bootstrap.Modal(modalElement);
+                modal.show();
+                console.log('✅ Modal aberto com sucesso');
+            } catch (error) {
+                console.error('❌ Erro ao abrir modal:', error);
+                alert('Erro ao abrir modal: ' + error.message);
+            }
             break;
         }
     }
+    
+    if (!produtoEncontrado) {
+        console.warn('⚠️ Produto não encontrado na tabela');
+        alert('Produto não encontrado na tabela');
+    }
 }
 
-    // Função para salvar produto editado
+    // Função para salvar produto editado (mesma lógica da página de detalhes)
     function salvarProduto() {
-        const form = document.getElementById('editarProdutoForm');
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-
-        // Validar dados
-        if (!data.price || !data.quantity) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
+        const formData = {
+            price: document.getElementById('editPrice').value,
+            quantity: document.getElementById('editQuantity').value,
+            status: document.getElementById('editStatus').value
+        };
+        
+        // Usar MLB armazenado na variável global
+        const mlb = window.produtoEditando ? window.produtoEditando.mlb : null;
+        if (!mlb) {
+            alert('Erro: MLB do produto não encontrado');
             return;
         }
-
-        // Enviar dados para o servidor
+        
         fetch('/produto/editar', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            credentials: 'same-origin',
-            body: JSON.stringify(data)
+            body: JSON.stringify({
+                mlb: mlb,
+                ...formData
+            })
         })
         .then(response => response.json())
-        .then(result => {
-            if (result.success) {
+        .then(data => {
+            if (data.success) {
+                // Fechar modal
+                bootstrap.Modal.getInstance(document.getElementById('editarProdutoModal')).hide();
+                
+                // Mostrar mensagem de sucesso
                 alert('Produto atualizado com sucesso!');
+                
+                // Recarregar página
                 location.reload();
             } else {
-                alert('Erro ao atualizar produto: ' + result.message);
+                alert('Erro ao atualizar produto: ' + data.message);
             }
         })
         .catch(error => {
-            alert('Erro na requisição: ' + error);
+            console.error('Erro:', error);
+            alert('Erro ao atualizar produto: ' + error.message);
         });
     }
 

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Teste de Webhooks{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Teste de Webhooks</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5>🔗 Teste de Webhooks</h5>
+                        <p>Esta página é usada para testar a funcionalidade de webhooks do Mercado Livre.</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h6>Funcionalidades de teste:</h6>
+                        <ul>
+                            <li>Verificação de conectividade com webhooks</li>
+                            <li>Teste de processamento de notificações</li>
+                            <li>Validação de dados recebidos</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <div class="alert alert-warning">
+                            <small>
+                                <i class="fas fa-info-circle"></i>
+                                Esta é uma página de teste. Em produção, os webhooks são processados automaticamente.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('webhooks') }}" class="btn btn-primary">
+                            <i class="fas fa-cog"></i> Configurar Webhooks
+                        </a>
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-home"></i> Voltar ao Início
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

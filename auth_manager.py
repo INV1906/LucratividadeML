@@ -288,15 +288,29 @@ class AuthManager:
     
     def criar_sessao(self, user_id: int, login_type: str, ip_address: str = None, user_agent: str = None) -> str:
         """Cria nova sessão para o usuário."""
-        conn = self.conectar()
-        if not conn:
-            return None
-        
+        conn = None
         try:
+            from configuracao_sessoes import ConfiguracaoSessoes
+            
+            # Verificar se pode criar nova sessão
+            if not self.verificar_limite_sessoes_usuario(user_id):
+                print(f"❌ Limite de sessões excedido para usuário {user_id}")
+                return None
+            
+            # Encerrar sessões antigas se necessário
+            self.encerrar_sessoes_antigas_usuario(user_id)
+            
+            conn = self.conectar()
+            if not conn:
+                return None
+            
             with conn.cursor() as cursor:
                 # Gerar token de sessão
                 session_token = secrets.token_urlsafe(32)
-                expires_at = datetime.now() + timedelta(days=30)
+                
+                # Usar tempo de expiração configurado
+                horas_expiracao = ConfiguracaoSessoes.obter_tempo_expiracao_horas()
+                expires_at = datetime.now() + timedelta(hours=horas_expiracao)
                 
                 # Inserir sessão
                 cursor.execute("""
@@ -305,13 +319,15 @@ class AuthManager:
                 """, (user_id, session_token, login_type, expires_at, ip_address, user_agent))
                 
                 conn.commit()
+                print(f"✅ Nova sessão criada para usuário {user_id} (expira em {horas_expiracao}h)")
                 return session_token
                 
         except Exception as e:
             print(f"Erro ao criar sessão: {e}")
             return None
         finally:
-            conn.close()
+            if conn and conn.is_connected():
+                conn.close()
     
     def verificar_sessao(self, session_token: str) -> Optional[Dict[str, Any]]:
         """Verifica se sessão é válida."""
@@ -377,6 +393,103 @@ class AuthManager:
             return False
         finally:
             conn.close()
+    
+    def verificar_sessao_ativa_usuario(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Verifica se usuário tem sessão ativa e retorna dados da sessão."""
+        conn = self.conectar()
+        if not conn:
+            return None
+        
+        try:
+            with conn.cursor(dictionary=True) as cursor:
+                cursor.execute("""
+                    SELECT * FROM sessoes_ativas 
+                    WHERE user_id = %s AND expires_at > NOW()
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """, (user_id,))
+                
+                return cursor.fetchone()
+                
+        except Exception as e:
+            print(f"Erro ao verificar sessão ativa: {e}")
+            return None
+        finally:
+            conn.close()
+    
+    def verificar_limite_sessoes_usuario(self, user_id: int) -> bool:
+        """Verifica se usuário pode criar nova sessão (respeitando limite)"""
+        conn = None
+        try:
+            from configuracao_sessoes import ConfiguracaoSessoes
+            
+            if not ConfiguracaoSessoes.deve_permitir_multiplas_sessoes():
+                return True  # Se não permite múltiplas, sempre pode criar (substitui a anterior)
+            
+            conn = self.conectar()
+            if not conn:
+                return False
+            
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) FROM sessoes_ativas 
+                    WHERE user_id = %s AND expires_at > NOW()
+                """, (user_id,))
+                
+                count = cursor.fetchone()[0]
+                max_sessoes = ConfiguracaoSessoes.obter_max_sessoes_por_usuario()
+                
+                return count < max_sessoes
+                
+        except Exception as e:
+            print(f"Erro ao verificar limite de sessões: {e}")
+            return True  # Em caso de erro, permite criar
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
+    
+    def encerrar_sessoes_antigas_usuario(self, user_id: int):
+        """Encerra sessões antigas do usuário se exceder o limite"""
+        conn = None
+        try:
+            from configuracao_sessoes import ConfiguracaoSessoes
+            
+            if not ConfiguracaoSessoes.deve_permitir_multiplas_sessoes():
+                return  # Se não permite múltiplas, não precisa encerrar antigas
+            
+            conn = self.conectar()
+            if not conn:
+                return
+            
+            max_sessoes = ConfiguracaoSessoes.obter_max_sessoes_por_usuario()
+            
+            with conn.cursor() as cursor:
+                # Buscar sessões ativas ordenadas por data de criação (mais antigas primeiro)
+                cursor.execute("""
+                    SELECT id FROM sessoes_ativas 
+                    WHERE user_id = %s AND expires_at > NOW()
+                    ORDER BY created_at ASC
+                """, (user_id,))
+                
+                sessoes = cursor.fetchall()
+                
+                # Se exceder o limite, remove as mais antigas
+                if len(sessoes) >= max_sessoes:
+                    sessoes_para_remover = sessoes[:len(sessoes) - max_sessoes + 1]
+                    
+                    for sessao_id in sessoes_para_remover:
+                        cursor.execute("""
+                            DELETE FROM sessoes_ativas WHERE id = %s
+                        """, (sessao_id[0],))
+                    
+                    conn.commit()
+                    print(f"Encerradas {len(sessoes_para_remover)} sessões antigas do usuário {user_id}")
+                
+        except Exception as e:
+            print(f"Erro ao encerrar sessões antigas: {e}")
+        finally:
+            if conn and conn.is_connected():
+                conn.close()
     
     def limpar_sessoes_expiradas(self):
         """Remove sessões expiradas do banco."""

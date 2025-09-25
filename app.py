@@ -65,39 +65,58 @@ webhook_logger = WebhookLogger(db)
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        print(f"🔍 Login required: Verificando sessão para {request.endpoint}")
+        print(f"   Sessão atual: {dict(session)}")
+        
+        # Verificar se há user_id na sessão
         if 'user_id' not in session:
+            print("❌ Login required: user_id não encontrado na sessão")
             return redirect(url_for('auth'))
+        
+        user_id = session.get('user_id')
+        if not user_id:
+            print("❌ Login required: user_id é None")
+            session.clear()
+            return redirect(url_for('auth'))
+        
+        print(f"✅ Login required: user_id {user_id} encontrado na sessão")
         return f(*args, **kwargs)
     return decorated_function
 
-# Sistema de status de importação global
-import_status = {
-    'produtos': {
-        'ativo': False,
-        'progresso': 0,
-        'total': 0,
-        'atual': 0,
-        'status': 'Aguardando...',
-        'inicio': None,
-        'fim': None,
-        'sucesso': 0,
-        'erros': 0
-    },
-    'vendas': {
-        'ativo': False,
-        'progresso': 0,
-        'total': 0,
-        'atual': 0,
-        'status': 'Aguardando...',
-        'inicio': None,
-        'fim': None,
-        'sucesso': 0,
-        'erros': 0
-    }
-}
+# Sistema de status de importação por usuário
+import_status_por_usuario = {}
 
-# Executor global para threads
-executor = ThreadPoolExecutor(max_workers=2)
+def obter_status_importacao_usuario(user_id):
+    """Obtém ou cria status de importação para um usuário específico"""
+    if user_id not in import_status_por_usuario:
+        import_status_por_usuario[user_id] = {
+            'produtos': {
+                'ativo': False,
+                'progresso': 0,
+                'total': 0,
+                'atual': 0,
+                'status': 'Aguardando...',
+                'inicio': None,
+                'fim': None,
+                'sucesso': 0,
+                'erros': 0
+            },
+            'vendas': {
+                'ativo': False,
+                'progresso': 0,
+                'total': 0,
+                'atual': 0,
+                'status': 'Aguardando...',
+                'inicio': None,
+                'fim': None,
+                'sucesso': 0,
+                'erros': 0
+            }
+        }
+    return import_status_por_usuario[user_id]
+
+# Executor global para threads - Aumentado para suportar múltiplos usuários
+executor = ThreadPoolExecutor(max_workers=10)
 
 def processar_produto_individual(mlb, user_id):
     """Processa um produto individual - para uso em paralelo - OTIMIZADO."""
@@ -154,7 +173,7 @@ def processar_lote_produtos(mlbs_batch, user_id):
 
 def importar_produtos_background(user_id):
     """Função para importar produtos em background."""
-    global import_status
+    import_status = obter_status_importacao_usuario(user_id)
     
     try:
         # Inicializa status
@@ -268,7 +287,7 @@ def importar_produtos_background(user_id):
 
 def importar_vendas_background(user_id):
     """Função para importar vendas em background (estratégia de duas fases)."""
-    global import_status
+    import_status = obter_status_importacao_usuario(user_id)
     
     print(f"🚀 Iniciando importar_vendas_background para user_id: {user_id}")
     
@@ -421,7 +440,20 @@ def index():
             
             usuario = auth_manager.verificar_login(username, password)
             if usuario:
-                # Criar sessão
+                # Verificar se deve encerrar sessão existente (comportamento configurável)
+                from configuracao_sessoes import ConfiguracaoSessoes
+                
+                if not ConfiguracaoSessoes.deve_permitir_multiplas_sessoes():
+                    # Modo atual: encerra sessão anterior
+                    existing_session = auth_manager.verificar_sessao_ativa_usuario(usuario['user_id'])
+                    if existing_session:
+                        print(f"⚠️ Sessão existente encontrada para user_id {usuario['user_id']}, encerrando...")
+                        auth_manager.encerrar_sessao(existing_session['session_token'])
+                
+                # Limpar sessão atual
+                session.clear()
+                
+                # Criar nova sessão
                 session_token = auth_manager.criar_sessao(
                     usuario['user_id'], 
                     'password',
@@ -463,8 +495,32 @@ def logout():
     if 'session_token' in session:
         auth_manager.encerrar_sessao(session['session_token'])
     
+    # Limpar completamente a sessão
     session.clear()
-    return redirect(url_for('index'))
+    
+    # Adicionar headers para garantir que a sessão seja limpa no cliente
+    response = redirect(url_for('index'))
+    response.set_cookie('session', '', expires=0)
+    return response
+
+@app.route('/debug/limpar-sessoes', methods=['POST'])
+def limpar_todas_sessoes():
+    """Limpa todas as sessões ativas (apenas para debug)."""
+    try:
+        conn = auth_manager.conectar()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Erro de conexão'})
+        
+        with conn.cursor() as cursor:
+            cursor.execute("DELETE FROM sessoes_ativas")
+            conn.commit()
+            
+        conn.close()
+        session.clear()
+        
+        return jsonify({'success': True, 'message': 'Todas as sessões foram limpas'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro: {str(e)}'})
 
 @app.route('/registrar-auth', methods=['POST'])
 @login_required
@@ -876,10 +932,14 @@ def sync_vendas_manual():
         # Inicializar sincronização se necessário
         sync_manager.inicializar_sync_usuario(user_id)
         
-        # Executar sincronização
-        result = sync_manager.sincronizar_vendas_incremental(user_id)
+        # Executar sincronização em thread separada para não bloquear
+        future = executor.submit(sync_manager.sincronizar_vendas_incremental, user_id)
         
-        return jsonify(result)
+        return jsonify({
+            'success': True, 
+            'message': 'Sincronização de vendas iniciada em background',
+            'status': 'running'
+        })
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro na sincronização de vendas: {e}'})
 
@@ -896,10 +956,14 @@ def sync_produtos_manual():
         # Inicializar sincronização se necessário
         sync_manager.inicializar_sync_usuario(user_id)
         
-        # Executar sincronização
-        result = sync_manager.sincronizar_produtos_incremental(user_id)
+        # Executar sincronização em thread separada para não bloquear
+        future = executor.submit(sync_manager.sincronizar_produtos_incremental, user_id)
         
-        return jsonify(result)
+        return jsonify({
+            'success': True, 
+            'message': 'Sincronização de produtos iniciada em background',
+            'status': 'running'
+        })
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro na sincronização de produtos: {e}'})
 
@@ -991,6 +1055,11 @@ def callback():
         return redirect(url_for('index'))
     
     try:
+        # Limpar sessão anterior antes de processar novo login
+        if 'session_token' in session:
+            auth_manager.encerrar_sessao(session['session_token'])
+        session.clear()
+        
         print("🔄 Trocando código por token...")
         # Troca código por token
         token_data = api.trocar_codigo_por_token(code)
@@ -1005,10 +1074,37 @@ def callback():
         user_id = token_data.get('user_id')
         if user_id:
             print(f"👤 User ID: {user_id}")
-            session['user_id'] = user_id
-            session['access_token'] = token_data.get('access_token')
-            flash('🎉 Autenticação realizada com sucesso!', 'success')
-            return redirect(url_for('dashboard'))
+            
+            # Verificar se deve encerrar sessão existente (comportamento configurável)
+            from configuracao_sessoes import ConfiguracaoSessoes
+            
+            if not ConfiguracaoSessoes.deve_permitir_multiplas_sessoes():
+                # Modo atual: encerra sessão anterior
+                existing_session = auth_manager.verificar_sessao_ativa_usuario(user_id)
+                if existing_session:
+                    print(f"⚠️ Sessão existente encontrada para user_id {user_id}, encerrando...")
+                    auth_manager.encerrar_sessao(existing_session['session_token'])
+            
+            # Criar nova sessão
+            session_token = auth_manager.criar_sessao(
+                user_id, 
+                'mercadolivre',
+                request.remote_addr,
+                request.headers.get('User-Agent')
+            )
+            
+            if session_token:
+                session['user_id'] = user_id
+                session['access_token'] = token_data.get('access_token')
+                session['login_type'] = 'mercadolivre'
+                session['session_token'] = session_token
+                print(f"✅ Nova sessão criada: {session_token[:20]}...")
+                flash('🎉 Autenticação realizada com sucesso!', 'success')
+                return redirect(url_for('dashboard'))
+            else:
+                print("❌ Falha ao criar sessão")
+                flash('Erro ao criar sessão de usuário', 'error')
+                return redirect(url_for('index'))
         
         print("❌ User ID não encontrado no token")
         flash('Erro ao obter ID do usuário', 'error')
@@ -1256,7 +1352,7 @@ def detalhes_produto(mlb):
     # Calcula lucratividade
     lucratividade = calculator.calcular_lucratividade_produto(mlb)
     
-    return render_template('detalhes_produto.html', 
+    return render_template('produto_detalhes.html', 
                          produto=mlb, 
                          lucratividade=lucratividade)
 
@@ -1563,7 +1659,7 @@ def detalhes_venda(id_venda):
     # Calcula lucratividade da venda
     lucratividade = calculator.calcular_lucratividade_venda(id_venda)
     
-    return render_template('detalhes_venda.html', 
+    return render_template('venda_detalhes.html', 
                          venda_id=id_venda,
                          lucratividade=lucratividade)
 
@@ -1620,6 +1716,7 @@ def importar_produtos():
     user_id = session['user_id']
     
     # Verifica se já há uma importação ativa
+    import_status = obter_status_importacao_usuario(user_id)
     if import_status['produtos']['ativo']:
         return jsonify({
             'success': False, 
@@ -1648,13 +1745,20 @@ def importar_produtos():
     })
 
 @app.route('/importar/status')
+@login_required
 def status_importacao():
-    """Retorna status atual das importações."""
+    """Retorna status atual das importações para o usuário logado."""
+    user_id = session.get('user_id')
+    import_status = obter_status_importacao_usuario(user_id)
     return jsonify(import_status)
 
 @app.route('/importar/cancelar/<tipo>')
+@login_required
 def cancelar_importacao(tipo):
-    """Cancela uma importação em andamento."""
+    """Cancela uma importação em andamento para o usuário logado."""
+    user_id = session.get('user_id')
+    import_status = obter_status_importacao_usuario(user_id)
+    
     if tipo in import_status:
         import_status[tipo]['ativo'] = False
         import_status[tipo]['status'] = 'Cancelado pelo usuário'
@@ -1671,9 +1775,10 @@ def importar_vendas():
     user_id = session['user_id']
     
     # Verifica se já há uma importação ativa
+    import_status = obter_status_importacao_usuario(user_id)
     if import_status['vendas']['ativo']:
         return jsonify({
-            'success': False, 
+            'success': False,
             'message': 'Já existe uma importação de vendas em andamento!'
         })
     
@@ -1764,7 +1869,7 @@ def detalhes_pack(pack_id):
             flash('Venda não encontrada', 'error')
             return redirect(url_for('vendas'))
         
-        return render_template('detalhes_venda.html', 
+        return render_template('venda_detalhes.html', 
                              detalhes=detalhes, 
                              pack_id=pack_id)
         

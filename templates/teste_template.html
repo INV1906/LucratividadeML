@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Teste Template{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">Teste de Template</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h5>📊 Dados de Teste</h5>
+                        <p>Total de produtos: <strong>{{ total_produtos }}</strong></p>
+                    </div>
+                    
+                    {% if produtos %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>MLB</th>
+                                    <th>Título</th>
+                                    <th>Preço</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for produto in produtos %}
+                                <tr>
+                                    <td>{{ produto.mlb }}</td>
+                                    <td>{{ produto.titulo[:50] }}...</td>
+                                    <td>R$ {{ "%.2f"|format(produto.preco) }}</td>
+                                    <td>
+                                        <span class="badge badge-{{ 'success' if produto.status == 'active' else 'warning' }}">
+                                            {{ produto.status }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-warning">
+                        <p>Nenhum produto encontrado para teste.</p>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('index') }}" class="btn btn-primary">
+                            <i class="fas fa-home"></i> Voltar ao Início
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

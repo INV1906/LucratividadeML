@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Botão Editar</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Teste do Botão Editar</h2>
+        
+        <!-- Tabela de teste -->
+        <table class="table" id="produtosTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>MLB</th>
+                    <th>Preço</th>
+                    <th>Quantidade</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td><code>MLB123456789</code></td>
+                    <td>R$ 100,00</td>
+                    <td>5</td>
+                    <td><span class="badge bg-success">Ativo</span></td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-warning" onclick="editarProduto('MLB123456789')">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div class="modal fade" id="editarProdutoModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-edit me-2"></i>Editar Produto
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editarProdutoForm">
+                        <input type="hidden" id="editMlb" name="mlb">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Título do Produto</label>
+                            <div class="form-control-plaintext bg-light p-2 rounded" id="editTitleDisplay">
+                                <!-- Será preenchido via JavaScript -->
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="editPrice" class="form-label">Preço (R$)</label>
+                                    <input type="number" class="form-control" id="editPrice" name="price" step="0.01" min="0" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="editQuantity" class="form-label">Quantidade Disponível</label>
+                                    <input type="number" class="form-control" id="editQuantity" name="quantity" min="0" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="editStatus" class="form-label">Status</label>
+                                    <select class="form-select" id="editStatus" name="status" required>
+                                        <option value="active">Ativo</option>
+                                        <option value="paused">Pausado</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarProduto()">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+    
+    <script>
+        // Função para editar produto
+        function editarProduto(mlb) {
+            console.log('Função editarProduto chamada com MLB:', mlb);
+            
+            // Buscar dados do produto na tabela
+            const table = document.getElementById('produtosTable');
+            const rows = table.getElementsByTagName('tr');
+            
+            for (let i = 1; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                const mlbCell = cells[1].querySelector('code');
+                
+                if (mlbCell && mlbCell.textContent === mlb) {
+                    console.log('Produto encontrado na linha:', i);
+                    
+                    // Extrair dados da linha
+                    const title = cells[1].querySelector('strong') ? cells[1].querySelector('strong').textContent : 'Produto Teste';
+                    
+                    // Extrair preço corretamente
+                    let priceText = cells[2].textContent;
+                    const priceMatch = priceText.match(/R\$\s*([\d,]+\.?\d*)/);
+                    const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0;
+                    
+                    const quantity = parseInt(cells[3].textContent);
+                    
+                    // Extrair status corretamente
+                    const statusCell = cells[4];
+                    let status = 'active';
+                    if (statusCell.querySelector('.badge')) {
+                        const statusText = statusCell.querySelector('.badge').textContent.toLowerCase();
+                        if (statusText.includes('ativo')) {
+                            status = 'active';
+                        } else if (statusText.includes('pausado')) {
+                            status = 'paused';
+                        }
+                    }
+                    
+                    console.log('Dados extraídos:', { title, price, quantity, status });
+                    
+                    // Preencher formulário
+                    document.getElementById('editMlb').value = mlb;
+                    document.getElementById('editTitleDisplay').textContent = title;
+                    document.getElementById('editPrice').value = price;
+                    document.getElementById('editQuantity').value = quantity;
+                    document.getElementById('editStatus').value = status;
+                    
+                    // Abrir modal
+                    const modal = new bootstrap.Modal(document.getElementById('editarProdutoModal'));
+                    modal.show();
+                    break;
+                }
+            }
+        }
+
+        // Função para salvar produto editado
+        function salvarProduto() {
+            console.log('Função salvarProduto chamada');
+            
+            const form = document.getElementById('editarProdutoForm');
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+
+            console.log('Dados do formulário:', data);
+
+            // Validar dados
+            if (!data.price || !data.quantity) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
+
+            alert('Produto salvo com sucesso! (Teste)');
+            
+            // Fechar modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editarProdutoModal'));
+            modal.hide();
+        }
+    </script>
+</body>
+</html>
