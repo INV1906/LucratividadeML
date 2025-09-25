@@ -192,8 +192,8 @@
                 </h5>
             </div>
             <div class="card-body p-4">
-                {% if sugestoes %}
-                    {% for sugestao in sugestoes %}
+                {% if analise.sugestoes %}
+                    {% for sugestao in analise.sugestoes %}
                     <div class="alert alert-{{ 'danger' if sugestao.prioridade >= 8 else 'warning' if sugestao.prioridade >= 6 else 'info' }} border-0 shadow-sm mb-3">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h6 class="fw-bold mb-0">{{ sugestao.titulo }}</h6>
@@ -458,7 +458,7 @@
 const ctx = document.getElementById('vendasChart').getContext('2d');
 
 // Dados reais do backend
-const vendasPorDia = {{ analise.vendas_por_dia | tojson | safe }};
+const vendasPorDia = {{ (analise.vendas_por_dia or []) | tojson | safe }};
 
 // Preparar dados para o gráfico
 const labels = vendasPorDia.map(item => {
@@ -466,7 +466,7 @@ const labels = vendasPorDia.map(item => {
     return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 });
 
-const dadosVendas = vendasPorDia.map(item => item.vendas);
+const dadosVendas = vendasPorDia.map(item => item.vendas || 0);
 
 const vendasChart = new Chart(ctx, {
     type: 'line',
@@ -504,7 +504,7 @@ const vendasChart = new Chart(ctx, {
                 callbacks: {
                     label: function(context) {
                         const index = context.dataIndex;
-                        const receita = vendasPorDia[index].receita;
+                        const receita = vendasPorDia[index] ? (vendasPorDia[index].receita || 0) : 0;
                         return `Vendas: ${context.parsed.y} | Receita: R$ ${receita.toFixed(2)}`;
                     }
                 }

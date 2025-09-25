@@ -10,13 +10,25 @@ from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import mysql.connector
-from config import config
+import os
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
 
 class AuthManager:
     """Gerenciador de autenticação do sistema."""
     
     def __init__(self):
-        self.config_class = config['development']
+        # Configuração usando variáveis de ambiente
+        self.config_class = type('Config', (), {
+            'SECRET_KEY': os.getenv('FLASK_SECRET_KEY', 'sua_chave_secreta_aqui'),
+            'DB_HOST': os.getenv('DB_HOST', 'localhost'),
+            'DB_USER': os.getenv('DB_USER', 'root'),
+            'DB_PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'DB_NAME': os.getenv('DB_NAME', 'mercadolivre_lucratividade'),
+            'DB_PORT': int(os.getenv('DB_PORT', 3306))
+        })()
         self.db_config = {
             'host': self.config_class.DB_HOST,
             'user': self.config_class.DB_USER,
