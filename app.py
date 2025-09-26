@@ -522,6 +522,31 @@ def limpar_todas_sessoes():
     except Exception as e:
         return jsonify({'success': False, 'message': f'Erro: {str(e)}'})
 
+@app.route('/debug/validar-consistencia', methods=['POST'])
+def validar_consistencia():
+    """Valida e corrige inconsistências entre tabelas de usuários."""
+    try:
+        resultado = auth_manager.validar_consistencia_todas_tabelas()
+        
+        if resultado['success']:
+            if resultado['inconsistencias_corrigidas'] > 0:
+                return jsonify({
+                    'success': True, 
+                    'message': f'Validação concluída: {resultado["inconsistencias_corrigidas"]} inconsistências corrigidas',
+                    'detalhes': resultado['detalhes']
+                })
+            else:
+                return jsonify({
+                    'success': True, 
+                    'message': 'Nenhuma inconsistência encontrada - sistema está consistente',
+                    'detalhes': resultado['detalhes']
+                })
+        else:
+            return jsonify({'success': False, 'message': resultado['message']})
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'Erro: {str(e)}'})
+
 @app.route('/registrar-auth', methods=['POST'])
 @login_required
 def registrar_auth():
@@ -1074,6 +1099,9 @@ def callback():
         user_id = token_data.get('user_id')
         if user_id:
             print(f"👤 User ID: {user_id}")
+            
+            # Garantir consistência entre tabelas usuarios_auth e user_info
+            auth_manager.garantir_consistencia_usuario(user_id)
             
             # Verificar se deve encerrar sessão existente (comportamento configurável)
             from configuracao_sessoes import ConfiguracaoSessoes
@@ -2906,6 +2934,18 @@ def gerar_pdf_relatorio(analise_data):
 if __name__ == '__main__':
     # Cria tabelas se não existirem
     db.criar_tabelas()
+
+    # Valida consistência entre tabelas de usuários
+    try:
+        resultado = auth_manager.validar_consistencia_todas_tabelas()
+        if resultado['success'] and resultado['inconsistencias_corrigidas'] > 0:
+            print(f"🔧 Validação de consistência: {resultado['inconsistencias_corrigidas']} inconsistências corrigidas")
+        elif resultado['success']:
+            print("✅ Validação de consistência: sistema está consistente")
+        else:
+            print(f"⚠️ Erro na validação de consistência: {resultado.get('message', 'Erro desconhecido')}")
+    except Exception as e:
+        print(f"⚠️ Erro ao executar validação de consistência: {e}")
 
     # Inicia monitor de tokens automaticamente
     try:

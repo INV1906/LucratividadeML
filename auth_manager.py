@@ -77,11 +77,21 @@ class AuthManager:
                 salt = self.gerar_salt()
                 password_hash = self.hash_senha(senha, salt)
                 
-                # Inserir usuário
+                # Inserir usuário na tabela usuarios_auth
                 cursor.execute("""
                     INSERT INTO usuarios_auth (user_id, username, email, password_hash, salt)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (user_id, username, email, password_hash, salt))
+                
+                # Garantir que existe entrada correspondente na tabela user_info
+                cursor.execute("SELECT user_id FROM user_info WHERE user_id = %s", (user_id,))
+                if not cursor.fetchone():
+                    # Criar entrada na tabela user_info se não existir
+                    cursor.execute("""
+                        INSERT INTO user_info (user_id, nickname, first_name, email, status)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (user_id, username, username, email, 'active'))
+                    print(f"✅ Criada entrada em user_info para user_id {user_id}")
                 
                 conn.commit()
                 return True
@@ -490,6 +500,116 @@ class AuthManager:
         finally:
             if conn and conn.is_connected():
                 conn.close()
+    
+    def garantir_consistencia_usuario(self, user_id: int) -> bool:
+        """Garante que um usuário tenha entradas consistentes em ambas as tabelas."""
+        conn = self.conectar()
+        if not conn:
+            return False
+        
+        try:
+            with conn.cursor() as cursor:
+                # Verificar se existe em usuarios_auth
+                cursor.execute("SELECT username, email FROM usuarios_auth WHERE user_id = %s", (user_id,))
+                usuario_auth = cursor.fetchone()
+                
+                # Verificar se existe em user_info
+                cursor.execute("SELECT nickname, first_name, email FROM user_info WHERE user_id = %s", (user_id,))
+                usuario_info = cursor.fetchone()
+                
+                if usuario_auth and not usuario_info:
+                    # Existe em auth mas não em info - criar entrada em info
+                    username, email = usuario_auth
+                    cursor.execute("""
+                        INSERT INTO user_info (user_id, nickname, first_name, email, status)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (user_id, username, username, email, 'active'))
+                    print(f"✅ Criada entrada em user_info para user_id {user_id} (via OAuth)")
+                    conn.commit()
+                    return True
+                
+                elif usuario_info and not usuario_auth:
+                    # Existe em info mas não em auth - não criar entrada em auth automaticamente
+                    # pois isso requer senha que não temos no OAuth
+                    print(f"ℹ️ Usuário {user_id} existe apenas em user_info (login OAuth)")
+                    return True
+                
+                elif usuario_auth and usuario_info:
+                    # Existe em ambas - tudo ok
+                    print(f"✅ Usuário {user_id} tem entradas consistentes em ambas as tabelas")
+                    return True
+                
+                else:
+                    # Não existe em nenhuma - isso não deveria acontecer
+                    print(f"⚠️ Usuário {user_id} não encontrado em nenhuma tabela")
+                    return False
+                
+        except Exception as e:
+            print(f"Erro ao garantir consistência do usuário {user_id}: {e}")
+            return False
+        finally:
+            conn.close()
+    
+    def validar_consistencia_todas_tabelas(self) -> Dict[str, Any]:
+        """Valida e corrige inconsistências entre todas as tabelas de usuários."""
+        conn = self.conectar()
+        if not conn:
+            return {'success': False, 'message': 'Erro de conexão'}
+        
+        resultado = {
+            'success': True,
+            'inconsistencias_encontradas': 0,
+            'inconsistencias_corrigidas': 0,
+            'detalhes': []
+        }
+        
+        try:
+            with conn.cursor() as cursor:
+                # 1. Usuários em auth mas não em info
+                cursor.execute("""
+                    SELECT ua.user_id, ua.username, ua.email
+                    FROM usuarios_auth ua
+                    LEFT JOIN user_info ui ON ua.user_id = ui.user_id
+                    WHERE ui.user_id IS NULL
+                """)
+                
+                usuarios_sem_info = cursor.fetchall()
+                for user_id, username, email in usuarios_sem_info:
+                    resultado['inconsistencias_encontradas'] += 1
+                    cursor.execute("""
+                        INSERT INTO user_info (user_id, nickname, first_name, email, status)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """, (user_id, username, username, email, 'active'))
+                    resultado['inconsistencias_corrigidas'] += 1
+                    resultado['detalhes'].append(f"Criada entrada em user_info para user_id {user_id} ({username})")
+                
+                # 2. Usuários em info mas não em auth (apenas reportar, não corrigir automaticamente)
+                cursor.execute("""
+                    SELECT ui.user_id, ui.nickname, ui.email
+                    FROM user_info ui
+                    LEFT JOIN usuarios_auth ua ON ui.user_id = ua.user_id
+                    WHERE ua.user_id IS NULL
+                """)
+                
+                usuarios_sem_auth = cursor.fetchall()
+                for user_id, nickname, email in usuarios_sem_auth:
+                    resultado['inconsistencias_encontradas'] += 1
+                    resultado['detalhes'].append(f"Usuário {user_id} ({nickname}) existe apenas em user_info - requer criação manual de conta")
+                
+                conn.commit()
+                
+                if resultado['inconsistencias_corrigidas'] > 0:
+                    print(f"✅ Validação concluída: {resultado['inconsistencias_corrigidas']} inconsistências corrigidas")
+                
+                return resultado
+                
+        except Exception as e:
+            resultado['success'] = False
+            resultado['message'] = f"Erro na validação: {e}"
+            print(f"Erro ao validar consistência: {e}")
+            return resultado
+        finally:
+            conn.close()
     
     def limpar_sessoes_expiradas(self):
         """Remove sessões expiradas do banco."""
