@@ -1606,8 +1606,9 @@ function calcularLucratividadeDinamica() {
     const custosMercadoLivre = window.dadosOriginais?.comissao_ml || 0;
     const frete = window.dadosOriginais?.frete || 0;
     
-    // Calcula imposto baseado na porcentagem
-    const impostoValor = (impostoPercentual / 100) * precoVenda;
+    // Calcula imposto baseado na porcentagem sobre a base tributável (preço - frete - taxa)
+    const baseTributavel = precoVenda - frete - custosMercadoLivre;
+    const impostoValor = (impostoPercentual / 100) * baseTributavel;
     
     // Calcula custo total
     const custoTotal = custoProduto + embalagem + custosMercadoLivre + frete + impostoValor + custosExtras;

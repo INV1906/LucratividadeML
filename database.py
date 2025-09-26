@@ -1984,21 +1984,23 @@ class DatabaseManager:
                     return None
                 
                 # Calcula totais (tratando valores None)
-                preco_total = sum(float(item['item_preco_total'] or 0) for item in itens_venda if item.get('item_preco_total') is not None)
-                taxa_total = sum(float(item.get('taxa_venda', 0) or 0) for item in itens_venda)
+                preco_total = sum(float(item['preco_total'] or 0) for item in itens_venda if item.get('preco_total') is not None)
+                taxa_total = sum(float(item.get('taxa_ml', 0) or 0) for item in itens_venda)
                 
                 # Busca frete da venda ou calcula baseado nos produtos
-                frete = float(itens_venda[0].get('frete', 0) or 0)
+                frete = float(itens_venda[0].get('frete_total', 0) or 0)
                 if frete == 0:
                     # Se não tem frete na venda, busca frete dos produtos
                     frete_total = 0
                     for item in itens_venda:
                         item_id = item.get('item_id')
                         if item_id:
-                            cursor.execute("SELECT frete FROM frete WHERE mlb = %s", (item_id,))
-                            frete_item = cursor.fetchone()
-                            if frete_item and frete_item[0]:
-                                frete_total += float(frete_item[0])
+                            # Usa cursor separado para consulta de frete
+                            with conn.cursor() as frete_cursor:
+                                frete_cursor.execute("SELECT frete FROM frete WHERE mlb = %s", (item_id,))
+                                frete_item = frete_cursor.fetchone()
+                                if frete_item and frete_item[0] is not None:
+                                    frete_total += float(frete_item[0])
                     frete = frete_total
                 
                 # Agrupa produtos para exibição
@@ -2007,10 +2009,10 @@ class DatabaseManager:
                     produtos.append({
                         'item_id': item['item_id'],
                         'titulo': item['item_titulo'],
-                        'quantidade': item['item_quantidade'],
-                        'preco_unitario': item['item_preco_und'],
-                        'preco_total': item['item_preco_total'],
-                        'taxa_venda': item['taxa_venda']
+                        'quantidade': item['quantidade'],
+                        'preco_unitario': item['preco_unitario'],
+                        'preco_total': item['preco_total'],
+                        'taxa_venda': item.get('taxa_ml', 0)
                     })
                 
                 return {
@@ -3983,12 +3985,20 @@ class DatabaseManager:
                 
                 # Usa custos específicos da venda se existirem, senão usa custos do produto
                 custo_base = float(custos_venda['custo_venda']) if custos_venda and custos_venda['custo_venda'] > 0 else (float(custos_produto['custo_base']) if custos_produto else 0)
-                imposto = float(custos_venda['imposto_venda']) if custos_venda and custos_venda['imposto_venda'] > 0 else (float(custos_produto['imposto']) if custos_produto else 0)
+                imposto_perc = float(custos_venda['imposto_venda']) if custos_venda and custos_venda['imposto_venda'] > 0 else (float(custos_produto['imposto']) if custos_produto else 0)
                 embalagem = float(custos_venda['embalagem_venda']) if custos_venda and custos_venda['embalagem_venda'] > 0 else (float(custos_produto['embalagem']) if custos_produto else 0)
                 extra = float(custos_venda['extra_venda']) if custos_venda and custos_venda['extra_venda'] > 0 else (float(custos_produto['extra']) if custos_produto else 0)
                 
+                # Calcula imposto como porcentagem sobre a base tributável (preço - frete - taxa)
+                receita_item = float(item['preco_total'])
+                # Base tributável = preço de venda - frete proporcional - taxa ML proporcional
+                frete_proporcional = float(pack['frete_total']) / len(itens) if itens else 0
+                taxa_proporcional = float(pack['taxa_ml']) / len(itens) if itens else 0
+                base_tributavel = receita_item - frete_proporcional - taxa_proporcional
+                imposto_valor = (imposto_perc / 100) * base_tributavel if imposto_perc > 0 else 0
+                
                 # Calcula custos por item
-                custo_total_item = (custo_base + imposto + embalagem + extra) * item['quantidade']
+                custo_total_item = (custo_base + imposto_valor + embalagem + extra) * item['quantidade']
                 receita_item = float(item['preco_total'])
                 lucro_item = receita_item - custo_total_item
                 margem_item = (lucro_item / receita_item * 100) if receita_item > 0 else 0
@@ -4002,7 +4012,11 @@ class DatabaseManager:
                     'preco_unitario': float(item['preco_unitario']),
                     'preco_total': receita_item,
                     'custo_base': custo_base,
-                    'imposto': imposto,
+                    'imposto': imposto_valor,
+                    'imposto_percentual': imposto_perc,
+                    'base_tributavel': base_tributavel,
+                    'frete_proporcional': frete_proporcional,
+                    'taxa_proporcional': taxa_proporcional,
                     'embalagem': embalagem,
                     'extra': extra,
                     'custo_total': custo_total_item,

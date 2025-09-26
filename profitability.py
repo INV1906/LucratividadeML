@@ -166,8 +166,8 @@ class ProfitabilityCalculator:
         
         for item in itens:
             item_id = item['item_id']
-            quantidade = item['item_quantidade'] or 0
-            preco_item = float(item['item_preco_total'] or 0)
+            quantidade = item['quantidade'] or 0
+            preco_item = float(item['preco_total'] or 0)
             
             # Busca custos específicos da venda primeiro, depois custos padrão do produto
             custos_item = self.db.obter_custos_produto_para_venda(item_id, pack_id)
