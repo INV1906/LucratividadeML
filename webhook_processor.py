@@ -148,6 +148,27 @@ class WebhookProcessor:
     def _parse_notification(self, data: Dict[str, Any]) -> Optional[WebhookNotification]:
         """Faz parse da notificação para estrutura padronizada"""
         try:
+            # Parse das datas com valores padrão
+            sent_str = data.get('sent', '')
+            received_str = data.get('received', '')
+            
+            # Se não houver data, usar data atual
+            if sent_str:
+                try:
+                    sent = datetime.fromisoformat(sent_str.replace('Z', '+00:00'))
+                except:
+                    sent = datetime.now()
+            else:
+                sent = datetime.now()
+                
+            if received_str:
+                try:
+                    received = datetime.fromisoformat(received_str.replace('Z', '+00:00'))
+                except:
+                    received = datetime.now()
+            else:
+                received = datetime.now()
+            
             return WebhookNotification(
                 notification_id=data.get('_id', data.get('id', '')),
                 resource=data.get('resource', ''),
@@ -155,8 +176,8 @@ class WebhookProcessor:
                 topic=data.get('topic', ''),
                 application_id=int(data.get('application_id', 0)),
                 attempts=int(data.get('attempts', 1)),
-                sent=datetime.fromisoformat(data.get('sent', '').replace('Z', '+00:00')),
-                received=datetime.fromisoformat(data.get('received', '').replace('Z', '+00:00')),
+                sent=sent,
+                received=received,
                 actions=data.get('actions', []),
                 raw_data=data
             )
@@ -182,10 +203,10 @@ class WebhookProcessor:
     def _process_orders_v2(self, notification: WebhookNotification) -> bool:
         """Processa notificações de orders_v2 (vendas)"""
         try:
-            # Verificar se usuário precisa reautenticar
+            # Verificar se usuário precisa reautenticar (mas não bloquear webhook)
             if self.meli_api.verificar_necessidade_reautenticacao(notification.user_id):
-                logger.warning(f"Usuário {notification.user_id} precisa reautenticar - webhook ignorado")
-                return False
+                logger.warning(f"Usuário {notification.user_id} precisa reautenticar - processando webhook mesmo assim")
+                # Não retornar False aqui, continuar processamento
             
             # Extrair order_id do resource
             order_id = notification.resource.split('/')[-1]
@@ -199,16 +220,19 @@ class WebhookProcessor:
             # Obter detalhes completos da venda
             venda_data = self.meli_api.obter_detalhes_order(order_id, user_token)
             if not venda_data:
-                logger.error(f"Falha ao obter detalhes da venda {order_id}")
-                return False
+                logger.warning(f"Falha ao obter detalhes da venda {order_id} - pode ser venda inexistente ou token inválido")
+                # Mesmo sem dados da venda, registrar o webhook como recebido
+                return True
             
             # Salvar venda com status
             success = self.db_manager.salvar_venda_completa(venda_data, notification.user_id)
             
             if success:
                 logger.info(f"Venda {order_id} processada com sucesso")
+            else:
+                logger.warning(f"Falha ao salvar venda {order_id} no banco de dados")
             
-            return success
+            return True  # Sempre retornar True para webhooks, mesmo com erros
             
         except Exception as e:
             logger.error(f"Erro ao processar orders_v2: {e}")

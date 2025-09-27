@@ -371,7 +371,7 @@ class SyncManager:
             produtos_detalhados = []
             for produto_id in produtos_ids:
                 try:
-                    produto_data = self.api.obter_detalhes_produto(produto_id, access_token)
+                    produto_data = self.api.obter_detalhes_produto(produto_id, user_id)
                     if produto_data:
                         produtos_detalhados.append(produto_data)
                 except Exception as e:
@@ -422,7 +422,7 @@ class SyncManager:
                 stats['total'] += 1
                 
                 # Verificar se produto já existe
-                produto_existe = self.db.verificar_produto_existe(user_id, produto.get('id'))
+                produto_existe = self.db.verificar_produto_existe(produto.get('id'), user_id)
                 
                 if produto_existe:
                     # Atualizar produto existente
