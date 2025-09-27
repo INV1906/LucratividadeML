@@ -395,12 +395,32 @@
             background: linear-gradient(135deg, var(--secondary-color), #2980b9) !important;
         }
 
+        /* Mobile Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
         /* Responsividade para mobile */
         @media (max-width: 767.98px) {
             .sidebar {
-                width: 100%;
+                width: 280px;
                 transform: translateX(-100%);
                 transition: var(--transition);
+                z-index: 1000;
             }
             .sidebar.show {
                 transform: translateX(0);
@@ -409,12 +429,13 @@
                 margin-left: 0;
                 width: 100%;
                 padding: 1rem;
+                padding-top: 4rem; /* Espaço para o botão do menu */
             }
             .page-header {
-                padding: 1.5rem;
+                padding: 1.5rem 0;
             }
             .page-header h1 {
-                font-size: 2rem;
+                font-size: 1.8rem;
             }
             .stat-number {
                 font-size: 2rem;
@@ -429,6 +450,13 @@
                 padding: 0.5rem 1rem;
                 font-size: 0.875rem;
             }
+            .card-body {
+                padding: 1rem;
+            }
+            .card-header {
+                padding: 1rem;
+                font-size: 1rem;
+            }
         }
 
         /* Responsividade para tablets */
@@ -438,6 +466,20 @@
             }
             .stat-number {
                 font-size: 2.2rem;
+            }
+            .sidebar {
+                width: 250px;
+            }
+            .main-content {
+                margin-left: 250px;
+                width: calc(100% - 250px);
+            }
+        }
+
+        /* Responsividade para telas médias */
+        @media (min-width: 992px) and (max-width: 1199.98px) {
+            .main-content {
+                padding: 2rem;
             }
         }
 
@@ -602,6 +644,67 @@
         .tooltip .tooltip-arrow::before {
             border-top-color: var(--primary-color);
         }
+
+        /* Estilos responsivos para formulários */
+        @media (max-width: 768px) {
+            .form-control-lg {
+                padding: 0.75rem 1rem;
+                font-size: 1rem;
+            }
+            
+            .form-select-lg {
+                padding: 0.75rem 1rem;
+                font-size: 1rem;
+            }
+            
+            .btn-lg {
+                padding: 0.75rem 1rem;
+                font-size: 1rem;
+            }
+            
+            .card-body {
+                padding: 1rem;
+            }
+            
+            .table-responsive {
+                font-size: 0.875rem;
+            }
+            
+            .table th,
+            .table td {
+                padding: 0.5rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .form-control-lg {
+                padding: 0.6rem 0.8rem;
+                font-size: 0.95rem;
+            }
+            
+            .form-select-lg {
+                padding: 0.6rem 0.8rem;
+                font-size: 0.95rem;
+            }
+            
+            .btn-lg {
+                padding: 0.6rem 0.8rem;
+                font-size: 0.95rem;
+            }
+            
+            .card-body {
+                padding: 0.8rem;
+            }
+            
+            .table-responsive {
+                font-size: 0.8rem;
+            }
+            
+            .table th,
+            .table td {
+                padding: 0.4rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -669,6 +772,16 @@
             </div>
         </nav>
         
+        <!-- Mobile Menu Button -->
+        <button class="btn btn-primary d-md-none position-fixed" 
+                style="top: 1rem; left: 1rem; z-index: 1050; border-radius: 50%; width: 50px; height: 50px;"
+                onclick="toggleSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+
+        <!-- Mobile Overlay -->
+        <div class="sidebar-overlay d-md-none" onclick="toggleSidebar()"></div>
+
         <!-- Main content -->
         <main class="main-content">
                 <div class="page-header">
@@ -729,18 +842,34 @@
         // Toggle sidebar for mobile
         function toggleSidebar() {
             const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            
             sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
         }
         
         // Close sidebar when clicking outside on mobile
         document.addEventListener('click', function(event) {
             const sidebar = document.querySelector('.sidebar');
             const toggleBtn = document.querySelector('[onclick="toggleSidebar()"]');
+            const overlay = document.querySelector('.sidebar-overlay');
             
             if (window.innerWidth <= 767.98) {
                 if (!sidebar.contains(event.target) && !toggleBtn.contains(event.target)) {
                     sidebar.classList.remove('show');
+                    overlay.classList.remove('show');
                 }
+            }
+        });
+
+        // Close sidebar when window is resized to desktop
+        window.addEventListener('resize', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            
+            if (window.innerWidth > 767.98) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
             }
         });
     </script>
