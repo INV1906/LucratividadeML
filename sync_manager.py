@@ -331,13 +331,19 @@ class SyncManager:
             
             # Buscar detalhes de cada venda
             vendas_detalhadas = []
-            for venda_id in vendas:
+            for venda in vendas:
                 try:
-                    venda_data = self.api.obter_detalhes_order(venda_id, access_token)
-                    if venda_data:
-                        vendas_detalhadas.append(venda_data)
+                    # Se venda já é um objeto completo, usar diretamente
+                    if isinstance(venda, dict) and 'id' in venda:
+                        vendas_detalhadas.append(venda)
+                    else:
+                        # Se venda é apenas um ID, buscar detalhes
+                        venda_id = venda if isinstance(venda, str) else str(venda)
+                        venda_data = self.api.obter_detalhes_order(venda_id, access_token)
+                        if venda_data:
+                            vendas_detalhadas.append(venda_data)
                 except Exception as e:
-                    logger.warning(f"⚠️ Erro ao obter detalhes da venda {venda_id}: {e}")
+                    logger.warning(f"⚠️ Erro ao obter detalhes da venda {venda}: {e}")
             
             return vendas_detalhadas
             
@@ -422,7 +428,7 @@ class SyncManager:
                 stats['total'] += 1
                 
                 # Verificar se produto já existe
-                produto_existe = self.db.verificar_produto_existe(produto.get('id'), user_id)
+                produto_existe = self.db.verificar_produto_existe(user_id, produto.get('id'))
                 
                 if produto_existe:
                     # Atualizar produto existente

@@ -4673,7 +4673,7 @@ class DatabaseManager:
             with conn.cursor() as cursor:
                 cursor.execute("""
                     SELECT COUNT(*) FROM produtos 
-                    WHERE user_id = %s AND produto_id = %s
+                    WHERE user_id = %s AND mlb = %s
                 """, (user_id, produto_id))
                 
                 return cursor.fetchone()[0] > 0
@@ -4716,29 +4716,23 @@ class DatabaseManager:
                 # Inserir/atualizar produto
                 cursor.execute("""
                     INSERT INTO produtos (
-                        user_id, produto_id, titulo, categoria_id, preco, moeda,
-                        quantidade_disponivel, quantidade_vendida, condicao, status,
-                        permalink, thumbnail, data_criacao, data_modificacao,
-                        created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+                        user_id, mlb, title, category, price, avaliable_quantity, sold_quantity, status,
+                        permalink, thumbnail, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
                     ON DUPLICATE KEY UPDATE
-                        titulo = VALUES(titulo),
-                        categoria_id = VALUES(categoria_id),
-                        preco = VALUES(preco),
-                        moeda = VALUES(moeda),
-                        quantidade_disponivel = VALUES(quantidade_disponivel),
-                        quantidade_vendida = VALUES(quantidade_vendida),
-                        condicao = VALUES(condicao),
+                        title = VALUES(title),
+                        category = VALUES(category),
+                        price = VALUES(price),
+                        avaliable_quantity = VALUES(avaliable_quantity),
+                        sold_quantity = VALUES(sold_quantity),
                         status = VALUES(status),
                         permalink = VALUES(permalink),
                         thumbnail = VALUES(thumbnail),
-                        data_criacao = VALUES(data_criacao),
-                        data_modificacao = VALUES(data_modificacao),
                         updated_at = NOW()
                 """, (
-                    user_id, produto_id, titulo, categoria_id, preco, moeda,
-                    quantidade_disponivel, quantidade_vendida, condicao, status,
-                    permalink, thumbnail, data_criacao, data_modificacao
+                    user_id, produto_id, titulo, categoria_id, preco, 
+                    quantidade_disponivel, quantidade_vendida, status,
+                    permalink, thumbnail, data_criacao
                 ))
                 
                 conn.commit()
