@@ -8,9 +8,13 @@ import threading
 import time
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dotenv import load_dotenv
 from database import DatabaseManager
 from meli_api import MercadoLivreAPI
 from profitability import ProfitabilityCalculator
+
+# Carregar variáveis de ambiente
+load_dotenv()
 from auth_manager import AuthManager
 from webhook_processor import WebhookProcessor, WebhookLogger
 from token_monitor import start_token_monitoring, stop_token_monitoring, get_users_needing_reauth, force_sync_user
@@ -2416,7 +2420,7 @@ def sync():
         flash('Você precisa fazer login primeiro', 'warning')
         return redirect(url_for('index'))
     
-    return render_template('sync.html')
+    return render_template('sincronizacao_incremental.html')
 
 @app.errorhandler(404)
 def not_found(error):
@@ -2488,7 +2492,7 @@ def webhook_logs():
 @login_required
 def webhooks():
     """Tela de monitoramento de webhooks."""
-    return render_template('webhooks.html')
+    return render_template('webhook_monitor.html')
 
 @app.route('/test-webhooks')
 @login_required
